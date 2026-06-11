@@ -1,9 +1,75 @@
+const mongoose = require('mongoose');
 const fs = require('fs');
 const path = require('path');
 
 const DB_PATH = path.join(__dirname, 'database.json');
+const isMongo = !!process.env.MONGODB_URI;
 
-// Initialize database with default template if it doesn't exist
+// MongoDB Schema Definitions
+let TokenModel, SettingsModel, ChatModel;
+
+if (isMongo) {
+    mongoose.connect(process.env.MONGODB_URI)
+        .then(async () => {
+            console.log("Connected to MongoDB Atlas");
+            // Auto initialize default RIEAD token if collection is empty
+            try {
+                const count = await TokenModel.countDocuments({});
+                if (count === 0) {
+                    const defaultToken = new TokenModel({
+                        key: "RIEAD",
+                        termDays: 36500,
+                        maxDevices: 100,
+                        status: "ACTIVE",
+                        sessions: []
+                    });
+                    await defaultToken.save();
+                    console.log("Default RIEAD token initialized in MongoDB Atlas.");
+                }
+            } catch (err) {
+                console.error("Error auto-initializing default token:", err);
+            }
+        })
+        .catch(err => console.error("MongoDB Atlas connection error:", err));
+
+    const TokenSchema = new mongoose.Schema({
+        key: { type: String, required: true, unique: true, uppercase: true },
+        termDays: { type: Number, default: 30 },
+        maxDevices: { type: Number, default: 1 },
+        allowChat: { type: Boolean, default: false },
+        status: { type: String, default: "ACTIVE" }, // ACTIVE, BLOCKED, EXPIRED
+        createdAt: { type: String, default: () => new Date().toISOString() },
+        sessions: [{
+            id: String,
+            name: String,
+            loginTime: String,
+            expiresAt: Number, // timestamp
+            allowChat: Boolean
+        }]
+    });
+    TokenModel = mongoose.model('Token', TokenSchema);
+
+    const SettingsSchema = new mongoose.Schema({
+        isLive: { type: Boolean, default: false },
+        streamType: { type: String, default: "whip" },
+        streamTitle: { type: String, default: "FIFA World Cup 2026 Live" },
+        whipKey: { type: String, default: "rieadfifa26" },
+        hlsUrl: { type: String, default: "" },
+        youtubeUrl: { type: String, default: "" },
+        thumbnailUrl: { type: String, default: "" }
+    });
+    SettingsModel = mongoose.model('Settings', SettingsSchema);
+
+    const ChatSchema = new mongoose.Schema({
+        id: String,
+        senderName: String,
+        text: String,
+        timestamp: { type: String, default: () => new Date().toISOString() }
+    });
+    ChatModel = mongoose.model('Chat', ChatSchema);
+}
+
+// Local JSON Storage Helpers
 function initDb() {
     if (!fs.existsSync(DB_PATH)) {
         const defaultData = {
@@ -45,200 +111,372 @@ function writeDb(data) {
     }
 }
 
-// Token management
+// Unified db exports
 const db = {
-    getTokens: () => {
-        const data = readDb();
-        // Clean expired sessions on fetch
+    isMongo: () => isMongo,
+
+    getTokens: async () => {
         const now = Date.now();
-        let updated = false;
-        data.tokens.forEach(t => {
-            const initialCount = t.sessions.length;
-            t.sessions = t.sessions.filter(s => s.expiresAt > now);
-            if (t.sessions.length !== initialCount) {
-                updated = true;
+        if (isMongo) {
+            const tokens = await TokenModel.find({});
+            // Clean expired sessions
+            for (let t of tokens) {
+                const initialCount = t.sessions.length;
+                t.sessions = t.sessions.filter(s => s.expiresAt > now);
+                if (t.sessions.length !== initialCount) {
+                    await t.save();
+                }
             }
-        });
-        if (updated) {
+            return tokens.map(t => t.toObject());
+        } else {
+            const data = readDb();
+            let updated = false;
+            data.tokens.forEach(t => {
+                const initialCount = t.sessions.length;
+                t.sessions = t.sessions.filter(s => s.expiresAt > now);
+                if (t.sessions.length !== initialCount) {
+                    updated = true;
+                }
+            });
+            if (updated) {
+                writeDb(data);
+            }
+            return data.tokens;
+        }
+    },
+
+    getToken: async (key) => {
+        if (!key) return null;
+        const uKey = key.toUpperCase();
+        if (isMongo) {
+            // Clean expired sessions for this token
+            const token = await TokenModel.findOne({ key: uKey });
+            if (token) {
+                const now = Date.now();
+                const initialCount = token.sessions.length;
+                token.sessions = token.sessions.filter(s => s.expiresAt > now);
+                if (token.sessions.length !== initialCount) {
+                    await token.save();
+                }
+                return token.toObject();
+            }
+            return null;
+        } else {
+            const tokens = await db.getTokens();
+            return tokens.find(t => t.key.toUpperCase() === uKey);
+        }
+    },
+
+    createToken: async (key, termDays, maxDevices, allowChat = false) => {
+        const uKey = key.trim().toUpperCase();
+        if (isMongo) {
+            const exists = await TokenModel.findOne({ key: uKey });
+            if (exists) {
+                return { success: false, message: "Token already exists." };
+            }
+            const newToken = new TokenModel({
+                key: uKey,
+                termDays: parseInt(termDays) || 30,
+                maxDevices: parseInt(maxDevices) || 1,
+                allowChat: !!allowChat,
+                status: "ACTIVE",
+                sessions: []
+            });
+            await newToken.save();
+            return { success: true, token: newToken.toObject() };
+        } else {
+            const data = readDb();
+            if (data.tokens.some(t => t.key.toUpperCase() === uKey)) {
+                return { success: false, message: "Token already exists." };
+            }
+            const newToken = {
+                key: key.trim(),
+                termDays: parseInt(termDays) || 30,
+                maxDevices: parseInt(maxDevices) || 1,
+                allowChat: !!allowChat,
+                status: "ACTIVE",
+                createdAt: new Date().toISOString(),
+                sessions: []
+            };
+            data.tokens.push(newToken);
             writeDb(data);
+            return { success: true, token: newToken };
         }
-        return data.tokens;
     },
 
-    getToken: (key) => {
-        const tokens = db.getTokens();
-        return tokens.find(t => t.key.toUpperCase() === key.toUpperCase());
-    },
-
-    createToken: (key, termDays, maxDevices, allowChat = false) => {
-        const data = readDb();
-        if (data.tokens.some(t => t.key.toUpperCase() === key.toUpperCase())) {
-            return { success: false, message: "Token already exists." };
+    toggleTokenStatus: async (key) => {
+        const uKey = key.toUpperCase();
+        if (isMongo) {
+            const token = await TokenModel.findOne({ key: uKey });
+            if (token) {
+                token.status = token.status === "ACTIVE" ? "BLOCKED" : "ACTIVE";
+                if (token.status === "BLOCKED") {
+                    token.sessions = [];
+                }
+                await token.save();
+                return { success: true, token: token.toObject() };
+            }
+            return { success: false, message: "Token not found." };
+        } else {
+            const data = readDb();
+            const token = data.tokens.find(t => t.key.toUpperCase() === uKey);
+            if (token) {
+                token.status = token.status === "ACTIVE" ? "BLOCKED" : "ACTIVE";
+                if (token.status === "BLOCKED") {
+                    token.sessions = [];
+                }
+                writeDb(data);
+                return { success: true, token };
+            }
+            return { success: false, message: "Token not found." };
         }
-        const newToken = {
-            key: key.trim(),
-            termDays: parseInt(termDays) || 30,
-            maxDevices: parseInt(maxDevices) || 1,
-            allowChat: !!allowChat,
-            status: "ACTIVE",
-            createdAt: new Date().toISOString(),
-            sessions: []
-        };
-        data.tokens.push(newToken);
-        writeDb(data);
-        return { success: true, token: newToken };
     },
 
-    toggleTokenStatus: (key) => {
-        const data = readDb();
-        const token = data.tokens.find(t => t.key.toUpperCase() === key.toUpperCase());
-        if (token) {
-            token.status = token.status === "ACTIVE" ? "BLOCKED" : "ACTIVE";
-            // If blocked, clear all active sessions immediately
-            if (token.status === "BLOCKED") {
+    deleteToken: async (key) => {
+        const uKey = key.toUpperCase();
+        if (isMongo) {
+            const res = await TokenModel.deleteOne({ key: uKey });
+            if (res.deletedCount > 0) {
+                return { success: true };
+            }
+            return { success: false, message: "Token not found." };
+        } else {
+            const data = readDb();
+            const initialLength = data.tokens.length;
+            data.tokens = data.tokens.filter(t => t.key.toUpperCase() !== uKey);
+            if (data.tokens.length < initialLength) {
+                writeDb(data);
+                return { success: true };
+            }
+            return { success: false, message: "Token not found." };
+        }
+    },
+
+    clearAllTokens: async () => {
+        if (isMongo) {
+            await TokenModel.deleteMany({});
+            await ChatModel.deleteMany({});
+            await SettingsModel.deleteMany({});
+            return { success: true };
+        } else {
+            const data = { tokens: [], settings: null, chat: [] };
+            writeDb(data);
+            return { success: true };
+        }
+    },
+
+    addSession: async (key, name, sessionId, expireDurationMs = 24 * 60 * 60 * 1000) => {
+        const uKey = key.toUpperCase();
+        const now = Date.now();
+        if (isMongo) {
+            const token = await TokenModel.findOne({ key: uKey });
+            if (!token) return { success: false, message: "Invalid license key." };
+            if (token.status === "BLOCKED") return { success: false, message: "License key is blocked." };
+
+            const createdTime = new Date(token.createdAt).getTime();
+            const licenseExpireTime = createdTime + (token.termDays * 24 * 60 * 60 * 1000);
+            if (Date.now() > licenseExpireTime) {
+                token.status = "EXPIRED";
+                await token.save();
+                return { success: false, message: "License key has expired." };
+            }
+
+            token.sessions = token.sessions.filter(s => s.expiresAt > now);
+
+            const existingSession = token.sessions.find(s => s.id === sessionId);
+            if (existingSession) {
+                existingSession.expiresAt = now + expireDurationMs;
+                existingSession.name = name.trim();
+                await token.save();
+                return { success: true };
+            }
+
+            if (token.sessions.length >= token.maxDevices) {
+                return { success: false, message: "Device limit reached. Log out of other devices first." };
+            }
+
+            token.sessions.push({
+                id: sessionId,
+                name: name.trim(),
+                loginTime: new Date().toISOString(),
+                expiresAt: now + expireDurationMs,
+                allowChat: !!token.allowChat
+            });
+            await token.save();
+            return { success: true };
+        } else {
+            const data = readDb();
+            const token = data.tokens.find(t => t.key.toUpperCase() === uKey);
+            if (!token) return { success: false, message: "Invalid license key." };
+            if (token.status === "BLOCKED") return { success: false, message: "License key is blocked." };
+
+            const createdTime = new Date(token.createdAt).getTime();
+            const licenseExpireTime = createdTime + (token.termDays * 24 * 60 * 60 * 1000);
+            if (Date.now() > licenseExpireTime) {
+                token.status = "EXPIRED";
+                writeDb(data);
+                return { success: false, message: "License key has expired." };
+            }
+
+            token.sessions = token.sessions.filter(s => s.expiresAt > now);
+
+            const existingSession = token.sessions.find(s => s.id === sessionId);
+            if (existingSession) {
+                existingSession.expiresAt = now + expireDurationMs;
+                existingSession.name = name.trim();
+                writeDb(data);
+                return { success: true };
+            }
+
+            if (token.sessions.length >= token.maxDevices) {
+                return { success: false, message: "Device limit reached. Log out of other devices first." };
+            }
+
+            token.sessions.push({
+                id: sessionId,
+                name: name.trim(),
+                loginTime: new Date().toISOString(),
+                expiresAt: now + expireDurationMs,
+                allowChat: !!token.allowChat
+            });
+            writeDb(data);
+            return { success: true };
+        }
+    },
+
+    removeSession: async (key, sessionId) => {
+        const uKey = key.toUpperCase();
+        if (isMongo) {
+            const token = await TokenModel.findOne({ key: uKey });
+            if (token) {
+                token.sessions = token.sessions.filter(s => s.id !== sessionId);
+                await token.save();
+                return { success: true };
+            }
+            return { success: false };
+        } else {
+            const data = readDb();
+            const token = data.tokens.find(t => t.key.toUpperCase() === uKey);
+            if (token) {
+                token.sessions = token.sessions.filter(s => s.id !== sessionId);
+                writeDb(data);
+                return { success: true };
+            }
+            return { success: false };
+        }
+    },
+
+    clearSessions: async (key) => {
+        const uKey = key.toUpperCase();
+        if (isMongo) {
+            const token = await TokenModel.findOne({ key: uKey });
+            if (token) {
                 token.sessions = [];
+                await token.save();
+                return { success: true };
             }
-            writeDb(data);
-            return { success: true, token };
+            return { success: false, message: "Token not found." };
+        } else {
+            const data = readDb();
+            const token = data.tokens.find(t => t.key.toUpperCase() === uKey);
+            if (token) {
+                token.sessions = [];
+                writeDb(data);
+                return { success: true };
+            }
+            return { success: false, message: "Token not found." };
         }
-        return { success: false, message: "Token not found." };
     },
 
-    deleteToken: (key) => {
-        const data = readDb();
-        const initialLength = data.tokens.length;
-        data.tokens = data.tokens.filter(t => t.key.toUpperCase() !== key.toUpperCase());
-        if (data.tokens.length < initialLength) {
-            writeDb(data);
-            return { success: true };
+    getSettings: async () => {
+        if (isMongo) {
+            let settings = await SettingsModel.findOne({});
+            if (!settings) {
+                settings = new SettingsModel({
+                    isLive: false,
+                    streamType: "whip",
+                    streamTitle: "FIFA World Cup 2026 Live",
+                    whipKey: "rieadfifa26",
+                    hlsUrl: "",
+                    youtubeUrl: "",
+                    thumbnailUrl: ""
+                });
+                await settings.save();
+            }
+            return settings.toObject();
+        } else {
+            const data = readDb();
+            if (!data.settings) {
+                data.settings = {
+                    isLive: false,
+                    streamType: "whip",
+                    streamTitle: "FIFA World Cup 2026 Live",
+                    whipKey: "rieadfifa26",
+                    hlsUrl: "",
+                    youtubeUrl: "",
+                    thumbnailUrl: ""
+                };
+                writeDb(data);
+            }
+            return data.settings;
         }
-        return { success: false, message: "Token not found." };
     },
 
-    clearAllTokens: () => {
-        const data = { tokens: [] };
-        writeDb(data);
-        return { success: true };
-    },
-
-    // Session validation
-    addSession: (key, name, sessionId, expireDurationMs = 24 * 60 * 60 * 1000) => {
-        const data = readDb();
-        const token = data.tokens.find(t => t.key.toUpperCase() === key.toUpperCase());
-        if (!token) return { success: false, message: "Invalid license key." };
-        if (token.status === "BLOCKED") return { success: false, message: "License key is blocked." };
-
-        // Check expiration of the license key itself
-        const createdTime = new Date(token.createdAt).getTime();
-        const licenseExpireTime = createdTime + (token.termDays * 24 * 60 * 60 * 1000);
-        if (Date.now() > licenseExpireTime) {
-            token.status = "EXPIRED";
-            writeDb(data);
-            return { success: false, message: "License key has expired." };
-        }
-
-        // Clean expired sessions
-        const now = Date.now();
-        token.sessions = token.sessions.filter(s => s.expiresAt > now);
-
-        // Check if user is already registered in active sessions (refreshing page)
-        const existingSession = token.sessions.find(s => s.id === sessionId);
-        if (existingSession) {
-            existingSession.expiresAt = now + expireDurationMs; // Extend session
-            existingSession.name = name.trim();
-            writeDb(data);
-            return { success: true };
-        }
-
-        // Check device limit
-        if (token.sessions.length >= token.maxDevices) {
-            return { success: false, message: "Device limit reached. Log out of other devices first." };
-        }
-
-        // Add new session
-        token.sessions.push({
-            id: sessionId,
-            name: name.trim(),
-            loginTime: new Date().toISOString(),
-            expiresAt: now + expireDurationMs,
-            allowChat: !!token.allowChat
-        });
-        writeDb(data);
-        return { success: true };
-    },
-
-    removeSession: (key, sessionId) => {
-        const data = readDb();
-        const token = data.tokens.find(t => t.key.toUpperCase() === key.toUpperCase());
-        if (token) {
-            token.sessions = token.sessions.filter(s => s.id !== sessionId);
-            writeDb(data);
-            return { success: true };
-        }
-        return { success: false };
-    },
-
-    clearSessions: (key) => {
-        const data = readDb();
-        const token = data.tokens.find(t => t.key.toUpperCase() === key.toUpperCase());
-        if (token) {
-            token.sessions = [];
-            writeDb(data);
-            return { success: true };
-        }
-        return { success: false, message: "Token not found." };
-    },
-
-    getSettings: () => {
-        const data = readDb();
-        if (!data.settings) {
+    saveSettings: async (settings) => {
+        if (isMongo) {
+            let doc = await SettingsModel.findOne({});
+            if (!doc) {
+                doc = new SettingsModel();
+            }
+            doc.isLive = !!settings.isLive;
+            doc.streamType = settings.streamType || "whip";
+            doc.streamTitle = settings.streamTitle || "FIFA World Cup 2026 Live";
+            doc.whipKey = settings.whipKey || "rieadfifa26";
+            doc.hlsUrl = settings.hlsUrl || "";
+            doc.youtubeUrl = settings.youtubeUrl || "";
+            doc.thumbnailUrl = settings.thumbnailUrl || "";
+            await doc.save();
+            return { success: true, settings: doc.toObject() };
+        } else {
+            const data = readDb();
             data.settings = {
-                isLive: false,
-                streamType: "whip",
-                streamTitle: "FIFA World Cup 2026 Live",
-                whipKey: "rieadfifa26",
-                hlsUrl: "",
-                youtubeUrl: "",
-                thumbnailUrl: ""
+                isLive: !!settings.isLive,
+                streamType: settings.streamType || "whip",
+                streamTitle: settings.streamTitle || "FIFA World Cup 2026 Live",
+                whipKey: settings.whipKey || "rieadfifa26",
+                hlsUrl: settings.hlsUrl || "",
+                youtubeUrl: settings.youtubeUrl || "",
+                thumbnailUrl: settings.thumbnailUrl || ""
             };
             writeDb(data);
+            return { success: true, settings: data.settings };
         }
-        if (data.settings.twitchChannel && !data.settings.whipKey) {
-            data.settings.whipKey = data.settings.twitchChannel;
-            delete data.settings.twitchChannel;
-            writeDb(data);
-        }
-        return data.settings;
     },
 
-    saveSettings: (settings) => {
-        const data = readDb();
-        data.settings = {
-            isLive: !!settings.isLive,
-            streamType: settings.streamType || "whip",
-            streamTitle: settings.streamTitle || "FIFA World Cup 2026 Live",
-            whipKey: settings.whipKey || "rieadfifa26",
-            hlsUrl: settings.hlsUrl || "",
-            youtubeUrl: settings.youtubeUrl || "",
-            thumbnailUrl: settings.thumbnailUrl || ""
-        };
-        writeDb(data);
-        return { success: true, settings: data.settings };
-    },
-
-    toggleChatPermission: (key) => {
-        const data = readDb();
-        const token = data.tokens.find(t => t.key.toUpperCase() === key.toUpperCase());
-        if (token) {
-            token.allowChat = !token.allowChat;
-            writeDb(data);
-            return { success: true, token };
+    toggleChatPermission: async (key) => {
+        const uKey = key.toUpperCase();
+        if (isMongo) {
+            const token = await TokenModel.findOne({ key: uKey });
+            if (token) {
+                token.allowChat = !token.allowChat;
+                await token.save();
+                return { success: true, token: token.toObject() };
+            }
+            return { success: false, message: "Token not found." };
+        } else {
+            const data = readDb();
+            const token = data.tokens.find(t => t.key.toUpperCase() === uKey);
+            if (token) {
+                token.allowChat = !token.allowChat;
+                writeDb(data);
+                return { success: true, token };
+            }
+            return { success: false, message: "Token not found." };
         }
-        return { success: false, message: "Token not found." };
     },
 
-    getActiveSessions: () => {
-        const tokens = db.getTokens(); // Cleans expired sessions internally
+    getActiveSessions: async () => {
+        const tokens = await db.getTokens(); // Cleans expired sessions internally
         const activeSessions = [];
         tokens.forEach(t => {
             t.sessions.forEach(s => {
@@ -254,68 +492,125 @@ const db = {
         return activeSessions.sort((a, b) => new Date(b.loginTime) - new Date(a.loginTime));
     },
 
-    kickSession: (sessionId) => {
-        const data = readDb();
-        let kicked = false;
-        data.tokens.forEach(t => {
-            const initialCount = t.sessions.length;
-            t.sessions = t.sessions.filter(s => s.id !== sessionId);
-            if (t.sessions.length < initialCount) {
-                kicked = true;
+    kickSession: async (sessionId) => {
+        if (isMongo) {
+            const tokens = await TokenModel.find({});
+            let kicked = false;
+            for (let t of tokens) {
+                const initialCount = t.sessions.length;
+                t.sessions = t.sessions.filter(s => s.id !== sessionId);
+                if (t.sessions.length < initialCount) {
+                    await t.save();
+                    kicked = true;
+                }
             }
-        });
-        if (kicked) {
-            writeDb(data);
-            return { success: true };
-        }
-        return { success: false, message: "Session not found." };
-    },
-    toggleSessionChat: (sessionId) => {
-        const data = readDb();
-        let found = false;
-        data.tokens.forEach(t => {
-            const session = t.sessions.find(s => s.id === sessionId);
-            if (session) {
-                session.allowChat = !session.allowChat;
-                found = true;
+            if (kicked) return { success: true };
+            return { success: false, message: "Session not found." };
+        } else {
+            const data = readDb();
+            let kicked = false;
+            data.tokens.forEach(t => {
+                const initialCount = t.sessions.length;
+                t.sessions = t.sessions.filter(s => s.id !== sessionId);
+                if (t.sessions.length < initialCount) {
+                    kicked = true;
+                }
+            });
+            if (kicked) {
+                writeDb(data);
+                return { success: true };
             }
-        });
-        if (found) {
-            writeDb(data);
-            return { success: true };
+            return { success: false, message: "Session not found." };
         }
-        return { success: false, message: "Session not found." };
     },
 
-    getChatMessages: () => {
-        const data = readDb();
-        if (!data.chat) {
-            data.chat = [];
-            writeDb(data);
+    toggleSessionChat: async (sessionId) => {
+        if (isMongo) {
+            const tokens = await TokenModel.find({});
+            let found = false;
+            for (let t of tokens) {
+                const session = t.sessions.find(s => s.id === sessionId);
+                if (session) {
+                    session.allowChat = !session.allowChat;
+                    await t.save();
+                    found = true;
+                }
+            }
+            if (found) return { success: true };
+            return { success: false, message: "Session not found." };
+        } else {
+            const data = readDb();
+            let found = false;
+            data.tokens.forEach(t => {
+                const session = t.sessions.find(s => s.id === sessionId);
+                if (session) {
+                    session.allowChat = !session.allowChat;
+                    found = true;
+                }
+            });
+            if (found) {
+                writeDb(data);
+                return { success: true };
+            }
+            return { success: false, message: "Session not found." };
         }
-        return data.chat;
     },
 
-    addChatMessage: (senderName, text) => {
-        const data = readDb();
-        if (!data.chat) {
-            data.chat = [];
+    getChatMessages: async () => {
+        if (isMongo) {
+            const chats = await ChatModel.find({}).sort({ timestamp: 1 }).limit(50);
+            return chats.map(c => c.toObject());
+        } else {
+            const data = readDb();
+            if (!data.chat) {
+                data.chat = [];
+                writeDb(data);
+            }
+            return data.chat;
         }
-        const message = {
-            id: Math.random().toString(36).substring(2, 10),
-            senderName: senderName,
-            text: text,
-            timestamp: new Date().toISOString()
-        };
-        data.chat.push(message);
-        if (data.chat.length > 50) {
-            data.chat = data.chat.slice(-50);
+    },
+
+    addChatMessage: async (senderName, text) => {
+        if (isMongo) {
+            const chatMsg = new ChatModel({
+                id: Math.random().toString(36).substring(2, 10),
+                senderName: senderName,
+                text: text.trim()
+            });
+            await chatMsg.save();
+            
+            // Clean old chats (> 50 messages)
+            const count = await ChatModel.countDocuments({});
+            if (count > 50) {
+                const oldest = await ChatModel.find({}).sort({ timestamp: 1 }).limit(count - 50);
+                const idsToDelete = oldest.map(o => o._id);
+                await ChatModel.deleteMany({ _id: { $in: idsToDelete } });
+            }
+            return { success: true, message: chatMsg.toObject() };
+        } else {
+            const data = readDb();
+            if (!data.chat) {
+                data.chat = [];
+            }
+            const message = {
+                id: Math.random().toString(36).substring(2, 10),
+                senderName: senderName,
+                text: text,
+                timestamp: new Date().toISOString()
+            };
+            data.chat.push(message);
+            if (data.chat.length > 50) {
+                data.chat = data.chat.slice(-50);
+            }
+            writeDb(data);
+            return { success: true, message };
         }
-        writeDb(data);
-        return { success: true, message };
     }
 };
 
-initDb();
+// Auto initialize local JSON DB on start
+if (!isMongo) {
+    initDb();
+}
 
 module.exports = db;

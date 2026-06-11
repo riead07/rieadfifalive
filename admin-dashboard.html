@@ -363,6 +363,12 @@
             <span class="status-indicator">Storage: Stable (Atlas/JSON)</span>
         </div>
 
+        <!-- Storage Warning Banner -->
+        <div id="mongo-warning-banner" class="card" style="display: none; background: rgba(248, 69, 69, 0.08); border: 1px solid var(--danger-color); padding: 22px; border-radius: 16px; margin-bottom: 30px; box-shadow: 0 5px 15px rgba(248, 69, 69, 0.05);">
+            <h3 style="color: var(--danger-color); font-weight: 800; font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 6px;">⚠️ Temporary Storage Warning</h3>
+            <p style="font-size: 11px; color: var(--text-secondary); line-height: 1.6;">Your generated keys will be wiped when the Render server sleeps or restarts because the database is currently running in temporary JSON mode. To make your keys 100% persistent and permanent for free, create a free database on <strong>MongoDB Atlas</strong> and add the connection string as <strong>MONGODB_URI</strong> in your Render Environment Variables.</p>
+        </div>
+
         <!-- Broadcast Settings -->
         <div class="card">
             <div class="card-header">
@@ -589,6 +595,16 @@
                     document.getElementById('broadcast-is-live').checked = !!settings.isLive;
                     updateBroadcastUI();
                     toggleSourceInputs();
+
+                    // Storage indicator & warning banner update
+                    const dbType = settings.dbType || 'Stable (Atlas/JSON)';
+                    document.querySelector('.status-indicator').innerText = 'Storage: ' + dbType;
+                    const warningBanner = document.getElementById('mongo-warning-banner');
+                    if (dbType.includes('Temporary')) {
+                        warningBanner.style.display = 'block';
+                    } else {
+                        warningBanner.style.display = 'none';
+                    }
                 })
                 .catch(err => console.error(err));
         }

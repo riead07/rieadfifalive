@@ -24,7 +24,7 @@ app.use((req, res, next) => {
 });
 
 // Middlewares to protect routes
-function requireUserAuth(req, res, next) {
+async function requireUserAuth(req, res, next) {
     const sessionToken = req.cookies.user_session;
     const licenseKey = req.cookies.license_key;
 
@@ -33,21 +33,26 @@ function requireUserAuth(req, res, next) {
     }
 
     // Verify active session in DB
-    const tokenData = db.getToken(licenseKey);
-    if (!tokenData || tokenData.status !== 'ACTIVE') {
-        res.clearCookie('user_session');
-        res.clearCookie('license_key');
-        return res.redirect('/login');
-    }
+    try {
+        const tokenData = await db.getToken(licenseKey);
+        if (!tokenData || tokenData.status !== 'ACTIVE') {
+            res.clearCookie('user_session');
+            res.clearCookie('license_key');
+            return res.redirect('/login');
+        }
 
-    const activeSession = tokenData.sessions.find(s => s.id === sessionToken);
-    if (!activeSession || Date.now() > activeSession.expiresAt) {
-        res.clearCookie('user_session');
-        res.clearCookie('license_key');
-        return res.redirect('/login');
-    }
+        const activeSession = tokenData.sessions.find(s => s.id === sessionToken);
+        if (!activeSession || Date.now() > activeSession.expiresAt) {
+            res.clearCookie('user_session');
+            res.clearCookie('license_key');
+            return res.redirect('/login');
+        }
 
-    next();
+        next();
+    } catch (err) {
+        console.error(err);
+        res.redirect('/login');
+    }
 }
 
 function requireAdminAuth(req, res, next) {
@@ -76,29 +81,36 @@ app.get('/admin/dashboard', requireAdminAuth, (req, res) => {
 });
 
 // API endpoints for User authentication
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
     const { licenseKey, name } = req.body;
     if (!name || !licenseKey) {
         return res.status(400).json({ success: false, message: "Name and License key are required." });
     }
 
     const sessionId = crypto.randomBytes(16).toString('hex');
-    const result = db.addSession(licenseKey, name, sessionId);
-
-    if (result.success) {
-        res.cookie('user_session', sessionId, { maxAge: 24 * 60 * 60 * 1000, httpOnly: true });
-        res.cookie('license_key', licenseKey.toUpperCase(), { maxAge: 24 * 60 * 60 * 1000, httpOnly: true });
-        return res.json({ success: true });
-    } else {
-        return res.status(401).json({ success: false, message: result.message });
+    try {
+        const result = await db.addSession(licenseKey, name, sessionId);
+        if (result.success) {
+            res.cookie('user_session', sessionId, { maxAge: 24 * 60 * 60 * 1000, httpOnly: true });
+            res.cookie('license_key', licenseKey.toUpperCase(), { maxAge: 24 * 60 * 60 * 1000, httpOnly: true });
+            return res.json({ success: true });
+        } else {
+            return res.status(401).json({ success: false, message: result.message });
+        }
+    } catch (err) {
+        return res.status(500).json({ success: false, message: err.message });
     }
 });
 
-app.post('/api/logout', (req, res) => {
+app.post('/api/logout', async (req, res) => {
     const sessionToken = req.cookies.user_session;
     const licenseKey = req.cookies.license_key;
     if (licenseKey && sessionToken) {
-        db.removeSession(licenseKey, sessionToken);
+        try {
+            await db.removeSession(licenseKey, sessionToken);
+        } catch (err) {
+            console.error(err);
+        }
     }
     res.clearCookie('user_session');
     res.clearCookie('license_key');
@@ -121,129 +133,198 @@ app.post('/api/admin/logout', (req, res) => {
 });
 
 // Admin management operations (protected)
-app.get('/api/admin/tokens', requireAdminAuth, (req, res) => {
-    res.json(db.getTokens());
+app.get('/api/admin/tokens', requireAdminAuth, async (req, res) => {
+    try {
+        const tokens = await db.getTokens();
+        res.json(tokens);
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
 });
 
-app.post('/api/admin/create-token', requireAdminAuth, (req, res) => {
+app.post('/api/admin/create-token', requireAdminAuth, async (req, res) => {
     const { key, termDays, maxDevices, allowChat } = req.body;
     if (!key) {
         return res.status(400).json({ success: false, message: "Token Key is required." });
     }
-    const result = db.createToken(key.toUpperCase(), termDays, maxDevices, allowChat);
-    if (result.success) {
-        return res.json({ success: true, token: result.token });
-    } else {
+    try {
+        const result = await db.createToken(key.toUpperCase(), termDays, maxDevices, allowChat);
+        if (result.success) {
+            return res.json({ success: true, token: result.token });
+        } else {
+            return res.status(400).json({ success: false, message: result.message });
+        }
+    } catch (err) {
+        return res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+app.post('/api/admin/toggle-token', requireAdminAuth, async (req, res) => {
+    const { key } = req.body;
+    try {
+        const result = await db.toggleTokenStatus(key);
+        if (result.success) {
+            return res.json({ success: true, token: result.token });
+        }
         return res.status(400).json({ success: false, message: result.message });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: err.message });
     }
 });
 
-app.post('/api/admin/toggle-token', requireAdminAuth, (req, res) => {
+app.post('/api/admin/delete-token', requireAdminAuth, async (req, res) => {
     const { key } = req.body;
-    const result = db.toggleTokenStatus(key);
-    if (result.success) {
-        return res.json({ success: true, token: result.token });
+    try {
+        const result = await db.deleteToken(key);
+        if (result.success) {
+            return res.json({ success: true });
+        }
+        return res.status(400).json({ success: false, message: result.message });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: err.message });
     }
-    return res.status(400).json({ success: false, message: result.message });
 });
 
-app.post('/api/admin/delete-token', requireAdminAuth, (req, res) => {
-    const { key } = req.body;
-    const result = db.deleteToken(key);
-    if (result.success) {
-        return res.json({ success: true });
+app.post('/api/admin/clear-all', requireAdminAuth, async (req, res) => {
+    try {
+        const result = await db.clearAllTokens();
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
     }
-    return res.status(400).json({ success: false, message: result.message });
 });
 
-app.post('/api/admin/clear-all', requireAdminAuth, (req, res) => {
-    const result = db.clearAllTokens();
-    res.json(result);
-});
-
-app.post('/api/admin/clear-sessions', requireAdminAuth, (req, res) => {
+app.post('/api/admin/clear-sessions', requireAdminAuth, async (req, res) => {
     const { key } = req.body;
-    const result = db.clearSessions(key);
-    res.json(result);
-});
-
-app.post('/api/admin/toggle-chat', requireAdminAuth, (req, res) => {
-    const { key } = req.body;
-    const result = db.toggleChatPermission(key);
-    if (result.success) {
-        return res.json({ success: true, token: result.token });
+    try {
+        const result = await db.clearSessions(key);
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
     }
-    return res.status(400).json({ success: false, message: result.message });
 });
 
-app.get('/api/admin/sessions', requireAdminAuth, (req, res) => {
-    res.json(db.getActiveSessions());
+app.post('/api/admin/toggle-chat', requireAdminAuth, async (req, res) => {
+    const { key } = req.body;
+    try {
+        const result = await db.toggleChatPermission(key);
+        if (result.success) {
+            return res.json({ success: true, token: result.token });
+        }
+        return res.status(400).json({ success: false, message: result.message });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: err.message });
+    }
 });
 
-app.post('/api/admin/kick-session', requireAdminAuth, (req, res) => {
+app.get('/api/admin/sessions', requireAdminAuth, async (req, res) => {
+    try {
+        const sessions = await db.getActiveSessions();
+        res.json(sessions);
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+app.post('/api/admin/kick-session', requireAdminAuth, async (req, res) => {
     const { sessionId } = req.body;
-    const result = db.kickSession(sessionId);
-    res.json(result);
+    try {
+        const result = await db.kickSession(sessionId);
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
 });
 
-app.post('/api/admin/toggle-session-chat', requireAdminAuth, (req, res) => {
+app.post('/api/admin/toggle-session-chat', requireAdminAuth, async (req, res) => {
     const { sessionId } = req.body;
-    const result = db.toggleSessionChat(sessionId);
-    res.json(result);
+    try {
+        const result = await db.toggleSessionChat(sessionId);
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
 });
 
 // Settings operations
-app.get('/api/settings', requireUserAuth, (req, res) => {
+app.get('/api/settings', requireUserAuth, async (req, res) => {
     const licenseKey = req.cookies.license_key;
     const sessionToken = req.cookies.user_session;
-    const tokenData = db.getToken(licenseKey);
-    const settings = db.getSettings();
-    if (!tokenData) {
-        return res.status(401).json({ success: false, message: "Unauthorized." });
+    try {
+        const tokenData = await db.getToken(licenseKey);
+        const settings = await db.getSettings();
+        if (!tokenData) {
+            return res.status(401).json({ success: false, message: "Unauthorized." });
+        }
+        const activeSession = tokenData.sessions.find(s => s.id === sessionToken);
+        const activeViewerCount = (await db.getActiveSessions()).length;
+        const dbType = db.isMongo() ? 'MongoDB Atlas (Persistent)' : 'Local JSON File (Temporary)';
+        res.json({
+            ...settings,
+            allowChat: activeSession ? !!activeSession.allowChat : false,
+            viewerName: activeSession ? activeSession.name : "Viewer",
+            activeViewerCount,
+            dbType
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
     }
-    const activeSession = tokenData.sessions.find(s => s.id === sessionToken);
-    const activeViewerCount = db.getActiveSessions().length;
-    res.json({
-        ...settings,
-        allowChat: activeSession ? !!activeSession.allowChat : false,
-        viewerName: activeSession ? activeSession.name : "Viewer",
-        activeViewerCount
-    });
 });
 
-app.get('/api/admin/settings', requireAdminAuth, (req, res) => {
-    const settings = db.getSettings();
-    res.json(settings);
+app.get('/api/admin/settings', requireAdminAuth, async (req, res) => {
+    try {
+        const settings = await db.getSettings();
+        const dbType = db.isMongo() ? 'MongoDB Atlas (Persistent)' : 'Local JSON File (Temporary)';
+        res.json({
+            ...settings,
+            dbType
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
 });
 
-app.post('/api/admin/settings', requireAdminAuth, (req, res) => {
+app.post('/api/admin/settings', requireAdminAuth, async (req, res) => {
     const { isLive, streamType, streamTitle, whipKey, hlsUrl, youtubeUrl, thumbnailUrl } = req.body;
-    const result = db.saveSettings({ isLive, streamType, streamTitle, whipKey, hlsUrl, youtubeUrl, thumbnailUrl });
-    res.json(result);
+    try {
+        const result = await db.saveSettings({ isLive, streamType, streamTitle, whipKey, hlsUrl, youtubeUrl, thumbnailUrl });
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
 });
 
 // Synchronized Chat operations
-app.get('/api/chat', requireUserAuth, (req, res) => {
-    res.json(db.getChatMessages());
+app.get('/api/chat', requireUserAuth, async (req, res) => {
+    try {
+        const chats = await db.getChatMessages();
+        res.json(chats);
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
 });
 
-app.post('/api/chat', requireUserAuth, (req, res) => {
+app.post('/api/chat', requireUserAuth, async (req, res) => {
     const { text } = req.body;
     if (!text || !text.trim()) {
         return res.status(400).json({ success: false, message: "Message text is required." });
     }
     const licenseKey = req.cookies.license_key;
     const sessionToken = req.cookies.user_session;
-    const tokenData = db.getToken(licenseKey);
-    if (!tokenData) {
-        return res.status(401).json({ success: false, message: "Unauthorized." });
+    try {
+        const tokenData = await db.getToken(licenseKey);
+        if (!tokenData) {
+            return res.status(401).json({ success: false, message: "Unauthorized." });
+        }
+        const activeSession = tokenData.sessions.find(s => s.id === sessionToken);
+        if (!activeSession || !activeSession.allowChat) {
+            return res.status(403).json({ success: false, message: "You are not permitted to comment." });
+        }
+        const result = await db.addChatMessage(activeSession.name, text.trim());
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
     }
-    const activeSession = tokenData.sessions.find(s => s.id === sessionToken);
-    if (!activeSession || !activeSession.allowChat) {
-        return res.status(403).json({ success: false, message: "You are not permitted to comment." });
-    }
-    const result = db.addChatMessage(activeSession.name, text.trim());
-    res.json(result);
 });
 
 app.listen(PORT, () => {
