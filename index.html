@@ -482,11 +482,26 @@
 
             <div class="secure-panel">
                 <div class="secure-title">🔒 Secure Access & Control Panel</div>
-                <div class="input-group">
-                    <label class="input-label">Private Stream Source URL (HLS / m3u8 / MP4)</label>
-                    <input type="text" id="stream-url" class="secure-input" placeholder="https://your-secure-server.com/live/stream.m3u8" value="">
+                <div style="display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 10px;">
+                    <button class="control-btn" id="tab-twitch-btn" onclick="switchTab('twitch')" style="background: var(--accent-green); color: #000;">Twitch Live Embed (Recommended)</button>
+                    <button class="control-btn" id="tab-hls-btn" onclick="switchTab('hls')">Custom HLS Stream</button>
                 </div>
-                <button class="action-btn" onclick="connectStream()">Connect Stream Securely</button>
+                
+                <div id="hls-input-group" style="display: none;">
+                    <div class="input-group">
+                        <label class="input-label">Private Stream Source URL (HLS / m3u8 / MP4)</label>
+                        <input type="text" id="stream-url" class="secure-input" placeholder="https://your-secure-server.com/live/stream.m3u8" value="">
+                    </div>
+                    <button class="action-btn" onclick="connectStream()">Connect Stream Securely</button>
+                </div>
+
+                <div id="twitch-input-group">
+                    <div class="input-group">
+                        <label class="input-label">Twitch Username / Channel Name</label>
+                        <input type="text" id="twitch-username" class="secure-input" placeholder="e.g. rieadlivefifa" value="riead07">
+                    </div>
+                    <button class="action-btn" onclick="connectTwitch()">Connect Twitch Stream</button>
+                </div>
             </div>
         </div>
 
@@ -532,17 +547,17 @@
                 <div class="step-card">
                     <div class="step-number">Step 01</div>
                     <h4 class="step-title">OBS Output Config</h4>
-                    <p class="step-desc">Open OBS. Go to Settings > Stream. Set Service to Custom. Enter your Render server URL as the Server and input your private Stream Key.</p>
+                    <p class="step-desc">Open OBS. Go to Settings > Stream. Select <strong>Twitch</strong> as the service. Connect your Twitch account or paste your Stream Key, and click Start Streaming.</p>
                 </div>
                 <div class="step-card">
                     <div class="step-number">Step 02</div>
                     <h4 class="step-title">Deploying to Render</h4>
-                    <p class="step-desc">Push this repository to GitHub. Open your Render dashboard, create a new Web Service, connect your GitHub repository, and click Deploy.</p>
+                    <p class="step-desc">Go to Render, link this GitHub repository, and click Deploy. Your website will be live in 2 minutes.</p>
                 </div>
                 <div class="step-card">
                     <div class="step-number">Step 03</div>
-                    <h4 class="step-title">Cast Live Stream</h4>
-                    <p class="step-desc">Once Render is live, open RieadLiveFIFA, paste your secure stream URL in the control panel, and enjoy completely buffer-free casting.</p>
+                    <h4 class="step-title">View Live on Web</h4>
+                    <p class="step-desc">Open your website, type your Twitch username in the control panel, click Connect, and watch your OBS cast in premium 4K!</p>
                 </div>
             </div>
         </div>
@@ -554,7 +569,70 @@
 
     <script>
         // Interactive functions
+        function switchTab(type) {
+            const hlsGroup = document.getElementById('hls-input-group');
+            const twitchGroup = document.getElementById('twitch-input-group');
+            const hlsBtn = document.getElementById('tab-hls-btn');
+            const twitchBtn = document.getElementById('tab-twitch-btn');
+
+            if (type === 'hls') {
+                hlsGroup.style.display = 'block';
+                twitchGroup.style.display = 'none';
+                hlsBtn.style.background = 'var(--accent-green)';
+                hlsBtn.style.color = '#000';
+                twitchBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+                twitchBtn.style.color = '#fff';
+            } else {
+                hlsGroup.style.display = 'none';
+                twitchGroup.style.display = 'block';
+                twitchBtn.style.background = 'var(--accent-green)';
+                twitchBtn.style.color = '#000';
+                hlsBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+                hlsBtn.style.color = '#fff';
+            }
+        }
+
+        function connectTwitch() {
+            const username = document.getElementById('twitch-username').value.trim();
+            const placeholder = document.getElementById('player-placeholder');
+            const video = document.getElementById('live-video');
+
+            if (!username) {
+                alert('Please enter your Twitch username.');
+                return;
+            }
+
+            placeholder.style.display = 'none';
+            video.style.display = 'none'; // hide native video
+            
+            // Check if player iframe already exists, if so, remove it
+            const existingIframe = document.getElementById('twitch-player-iframe');
+            if (existingIframe) existingIframe.remove();
+
+            const currentDomain = window.location.hostname;
+            const playerWrapper = document.querySelector('.player-wrapper');
+            
+            const iframe = document.createElement('iframe');
+            iframe.id = 'twitch-player-iframe';
+            iframe.src = `https://player.twitch.tv/?channel=${username}&parent=${currentDomain}&autoplay=true&muted=true`;
+            iframe.frameBorder = "0";
+            iframe.allowFullscreen = true;
+            iframe.scrolling = "no";
+            iframe.style.width = "100%";
+            iframe.style.height = "100%";
+            iframe.style.position = "absolute";
+            iframe.style.top = "0";
+            iframe.style.left = "0";
+            iframe.style.zIndex = "1";
+
+            playerWrapper.appendChild(iframe);
+        }
+
         function connectStream() {
+            // Remove twitch iframe if exists
+            const existingIframe = document.getElementById('twitch-player-iframe');
+            if (existingIframe) existingIframe.remove();
+
             const urlInput = document.getElementById('stream-url').value;
             const video = document.getElementById('live-video');
             const placeholder = document.getElementById('player-placeholder');
