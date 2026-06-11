@@ -455,9 +455,9 @@
             <a href="#setup" class="nav-link">Setup Guide</a>
             <a href="#" onclick="logoutUser()" class="nav-link" style="color: var(--danger-color);">Logout</a>
         </nav>
-        <div class="status-badge">
-            <div class="status-dot"></div>
-            <span>LIVE SERVER</span>
+        <div class="status-badge" id="header-status-badge" style="background: rgba(255, 56, 96, 0.1); border: 1px solid var(--danger-color); color: var(--danger-color); box-shadow: 0 0 15px rgba(255, 56, 96, 0.15);">
+            <div class="status-dot" id="header-status-dot" style="background: var(--danger-color); animation: pulse 1.5s infinite;"></div>
+            <span id="header-status-text">OFFLINE</span>
         </div>
     </header>
 
@@ -545,18 +545,25 @@
     </footer>
 
     <script>
-        // Interactive functions
         function logoutUser() {
             fetch('/api/logout', { method: 'POST' })
                 .then(() => {
-                    // Delete cookies manually just in case
                     document.cookie = "user_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
                     document.cookie = "license_key=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
                     window.location.href = '/login';
                 });
         }
+
+        let currentStreamSource = "";
+        let currentIsLive = null;
+
         document.addEventListener('DOMContentLoaded', () => {
             loadStreamSettings();
+            loadChatMessages();
+            // Poll settings every 10 seconds to auto-toggle live status and chat permissions
+            setInterval(loadStreamSettings, 10000);
+            // Poll chat messages every 3 seconds to sync messages
+            setInterval(loadChatMessages, 3000);
         });
 
         function loadStreamSettings() {
@@ -568,38 +575,77 @@
                     
                     const placeholder = document.getElementById('player-placeholder');
                     const video = document.getElementById('live-video');
-                    
+                    const badge = document.getElementById('header-status-badge');
+                    const dot = document.getElementById('header-status-dot');
+                    const text = document.getElementById('header-status-text');
                     const existingIframe = document.getElementById('twitch-player-iframe');
-                    if (existingIframe) existingIframe.remove();
 
-                    if (settings.streamType === 'twitch' && settings.twitchChannel) {
-                        placeholder.style.display = 'none';
+                    // Handle offline/online state
+                    if (!settings.isLive) {
+                        currentStreamSource = "";
+                        currentIsLive = false;
+                        if (existingIframe) existingIframe.remove();
                         video.style.display = 'none';
+                        video.pause();
                         
-                        const currentDomain = window.location.hostname;
-                        const playerWrapper = document.querySelector('.player-wrapper');
-                        
-                        const iframe = document.createElement('iframe');
-                        iframe.id = 'twitch-player-iframe';
-                        iframe.src = `https://player.twitch.tv/?channel=${settings.twitchChannel}&parent=${currentDomain}&autoplay=true&muted=false`;
-                        iframe.frameBorder = "0";
-                        iframe.allowFullscreen = true;
-                        iframe.scrolling = "no";
-                        iframe.style.width = "100%";
-                        iframe.style.height = "100%";
-                        iframe.style.position = "absolute";
-                        iframe.style.top = "0";
-                        iframe.style.left = "0";
-                        iframe.style.zIndex = "1";
-                        playerWrapper.appendChild(iframe);
-                    } else if (settings.streamType === 'hls' && settings.hlsUrl) {
-                        placeholder.style.display = 'none';
-                        video.style.display = 'block';
-                        video.src = settings.hlsUrl;
-                        video.play().catch(e => console.log('Autoplay blocked', e));
-                    } else {
                         placeholder.style.display = 'flex';
-                        video.style.display = 'none';
+                        placeholder.innerHTML = `
+                            <div class="placeholder-icon">⚽</div>
+                            <h3 style="color: var(--accent-blue); font-weight: 800; letter-spacing: 2px;">📺 BROADCAST IS OFFLINE</h3>
+                            <p>The host is currently setting up the match. Please stand by, the live stream will start automatically.</p>
+                        `;
+                        
+                        badge.style.background = 'rgba(255, 56, 96, 0.1)';
+                        badge.style.borderColor = 'var(--danger-color)';
+                        badge.style.color = 'var(--danger-color)';
+                        badge.style.boxShadow = '0 0 15px rgba(255, 56, 96, 0.15)';
+                        dot.style.background = 'var(--danger-color)';
+                        text.innerText = 'OFFLINE';
+                    } else {
+                        const sourceKey = `${settings.streamType}_${settings.twitchChannel || settings.hlsUrl}`;
+                        
+                        badge.style.background = 'rgba(0, 255, 135, 0.1)';
+                        badge.style.borderColor = 'var(--accent-green)';
+                        badge.style.color = 'var(--accent-green)';
+                        badge.style.boxShadow = '0 0 15px rgba(0, 255, 135, 0.15)';
+                        dot.style.background = 'var(--accent-green)';
+                        text.innerText = 'LIVE BROADCAST';
+
+                        if (currentStreamSource !== sourceKey || currentIsLive !== true) {
+                            currentStreamSource = sourceKey;
+                            currentIsLive = true;
+                            if (existingIframe) existingIframe.remove();
+
+                            if (settings.streamType === 'twitch' && settings.twitchChannel) {
+                                placeholder.style.display = 'none';
+                                video.style.display = 'none';
+                                
+                                const currentDomain = window.location.hostname;
+                                const playerWrapper = document.querySelector('.player-wrapper');
+                                
+                                const iframe = document.createElement('iframe');
+                                iframe.id = 'twitch-player-iframe';
+                                iframe.src = `https://player.twitch.tv/?channel=${settings.twitchChannel}&parent=${currentDomain}&autoplay=true&muted=false`;
+                                iframe.frameBorder = "0";
+                                iframe.allowFullscreen = true;
+                                iframe.scrolling = "no";
+                                iframe.style.width = "100%";
+                                iframe.style.height = "100%";
+                                iframe.style.position = "absolute";
+                                iframe.style.top = "0";
+                                iframe.style.left = "0";
+                                iframe.style.zIndex = "1";
+                                playerWrapper.appendChild(iframe);
+                            } else if (settings.streamType === 'hls' && settings.hlsUrl) {
+                                placeholder.style.display = 'none';
+                                video.style.display = 'block';
+                                video.src = settings.hlsUrl;
+                                video.play().catch(e => console.log('Autoplay blocked', e));
+                            } else {
+                                placeholder.style.display = 'flex';
+                                video.style.display = 'none';
+                            }
+                        }
                     }
 
                     // Chat permission handling
@@ -636,19 +682,56 @@
             video.muted = !video.muted;
         }
 
+        function loadChatMessages() {
+            fetch('/api/chat')
+                .then(res => res.json())
+                .then(messages => {
+                    const chatContainer = document.getElementById('chat-container');
+                    chatContainer.innerHTML = '';
+                    
+                    if (messages.length === 0) {
+                        chatContainer.innerHTML = `<div style="text-align: center; color: var(--text-secondary); font-size: 12px; margin-top: 20px;">No messages in this chat.</div>`;
+                        return;
+                    }
+
+                    messages.forEach(msg => {
+                        const msgDiv = document.createElement('div');
+                        msgDiv.className = 'chat-message';
+                        const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        msgDiv.innerHTML = `
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                <span class="chat-user">${msg.senderName}</span>
+                                <span style="font-size: 9px; color: var(--text-secondary);">${time}</span>
+                            </div>
+                            <div style="color: #fff; line-height: 1.4;">${msg.text}</div>
+                        `;
+                        chatContainer.appendChild(msgDiv);
+                    });
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                })
+                .catch(err => console.error(err));
+        }
+
         function sendMessage() {
             const input = document.getElementById('chat-msg');
-            const chatContainer = document.getElementById('chat-container');
+            const text = input.value.trim();
+            if (!text) return;
 
-            if (!input.value.trim()) return;
-
-            const msgDiv = document.createElement('div');
-            msgDiv.className = 'chat-message';
-            msgDiv.innerHTML = `<div class="chat-user">You (Guest)</div>${input.value}`;
-            chatContainer.appendChild(msgDiv);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-
-            input.value = '';
+            fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    input.value = '';
+                    loadChatMessages();
+                } else {
+                    alert(data.message || "Could not send message.");
+                }
+            })
+            .catch(err => console.error(err));
         }
 
         // Live Viewer simulation

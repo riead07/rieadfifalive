@@ -298,6 +298,57 @@
         .logout-link a:hover {
             color: var(--accent-cyan);
         }
+
+        /* Premium Switch Style */
+        .switch-container {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 26px;
+        }
+
+        .switch-container input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.1);
+            transition: .4s;
+            border-radius: 34px;
+            border: 1px solid rgba(29, 114, 242, 0.2);
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 4px;
+            bottom: 4px;
+            background-color: #fff;
+            transition: .4s;
+            border-radius: 50%;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+        }
+
+        input:checked + .slider {
+            background-color: rgba(0, 255, 135, 0.2);
+            border-color: var(--accent-green);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(24px);
+            background-color: var(--accent-green);
+            box-shadow: 0 0 10px rgba(0, 255, 135, 0.8);
+        }
     </style>
 </head>
 <body>
@@ -318,6 +369,16 @@
                 <h2 class="card-title">Live Broadcast Control Panel 📺</h2>
             </div>
             <div style="display: grid; gap: 20px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(29, 114, 242, 0.05); border: 1px solid rgba(29, 114, 242, 0.2); padding: 15px 20px; border-radius: 10px;">
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <span class="input-label" style="margin-bottom: 0;">Broadcast Status</span>
+                        <span id="broadcast-status-text" style="font-size: 13px; font-weight: 700; color: var(--danger-color); transition: color 0.3s ease;">🔴 OFFLINE (Stream Disabled)</span>
+                    </div>
+                    <label class="switch-container">
+                        <input type="checkbox" id="broadcast-is-live" onchange="updateBroadcastUI()">
+                        <span class="slider"></span>
+                    </label>
+                </div>
                 <div class="form-grid" style="grid-template-columns: 2fr 1fr; border-bottom: 1px dashed rgba(29, 114, 242, 0.1); padding-bottom: 20px;">
                     <div class="input-group">
                         <label class="input-label">Live Stream Name/Title</label>
@@ -452,6 +513,18 @@
             }
         }
 
+        function updateBroadcastUI() {
+            const isChecked = document.getElementById('broadcast-is-live').checked;
+            const textElement = document.getElementById('broadcast-status-text');
+            if (isChecked) {
+                textElement.innerHTML = `🟢 LIVE (Stream Enabled)`;
+                textElement.style.color = `var(--accent-green)`;
+            } else {
+                textElement.innerHTML = `🔴 OFFLINE (Stream Disabled)`;
+                textElement.style.color = `var(--danger-color)`;
+            }
+        }
+
         function loadSettings() {
             fetch('/api/settings')
                 .then(res => res.json())
@@ -460,6 +533,8 @@
                     document.getElementById('stream-type').value = settings.streamType || 'twitch';
                     document.getElementById('twitch-channel').value = settings.twitchChannel || '';
                     document.getElementById('hls-url').value = settings.hlsUrl || '';
+                    document.getElementById('broadcast-is-live').checked = !!settings.isLive;
+                    updateBroadcastUI();
                     toggleSourceInputs();
                 })
                 .catch(err => console.error(err));
@@ -470,6 +545,7 @@
             const streamType = document.getElementById('stream-type').value;
             const twitchChannel = document.getElementById('twitch-channel').value.trim();
             const hlsUrl = document.getElementById('hls-url').value.trim();
+            const isLive = document.getElementById('broadcast-is-live').checked;
 
             if (!streamTitle) {
                 alert("Please enter a live stream name/title.");
@@ -479,7 +555,7 @@
             fetch('/api/admin/settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ streamTitle, streamType, twitchChannel, hlsUrl })
+                body: JSON.stringify({ isLive, streamTitle, streamType, twitchChannel, hlsUrl })
             })
             .then(res => res.json())
             .then(data => {
@@ -670,10 +746,17 @@
                     sessions.forEach(s => {
                         const tr = document.createElement('tr');
                         const loginDate = new Date(s.loginTime).toLocaleString();
-                        
+                        const chatStatusBadge = s.allowChat 
+                            ? `<span style="color: var(--accent-green); font-size: 10px; font-weight: 700; margin-left: 8px;">(Chat OK)</span>`
+                            : `<span style="color: var(--danger-color); font-size: 10px; font-weight: 700; margin-left: 8px;">(Muted)</span>`;
+                        const chatActionText = s.allowChat ? "Mute Chat" : "Allow Chat";
+                        const chatActionStyle = s.allowChat 
+                            ? `background: rgba(248, 69, 69, 0.15); color: var(--danger-color);`
+                            : `background: rgba(0, 255, 135, 0.15); color: var(--accent-green);`;
+
                         tr.innerHTML = `
                             <td>
-                                <div class="key-text" style="color: var(--accent-green);">${s.name}</div>
+                                <div class="key-text" style="color: var(--accent-green);">${s.name} ${chatStatusBadge}</div>
                             </td>
                             <td>
                                 <span class="term-text">${s.key}</span>
@@ -682,13 +765,33 @@
                                 <span class="term-text">${loginDate}</span>
                             </td>
                             <td>
-                                <button class="action-btn btn-delete" onclick="kickSession('${s.sessionId}')">Disconnect / Kick</button>
+                                <div class="action-actions">
+                                    <button class="action-btn" style="${chatActionStyle}" onclick="toggleSessionChat('${s.sessionId}')">${chatActionText}</button>
+                                    <button class="action-btn btn-delete" onclick="kickSession('${s.sessionId}')">Kick</button>
+                                </div>
                             </td>
                         `;
                         tbody.appendChild(tr);
                     });
                 })
                 .catch(err => console.error(err));
+        }
+
+        function toggleSessionChat(sessionId) {
+            fetch('/api/admin/toggle-session-chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionId })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    fetchActiveSessions();
+                } else {
+                    alert(data.message);
+                }
+            })
+            .catch(err => console.error(err));
         }
 
         function kickSession(sessionId) {

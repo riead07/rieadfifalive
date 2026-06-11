@@ -160,7 +160,8 @@ const db = {
             id: sessionId,
             name: name.trim(),
             loginTime: new Date().toISOString(),
-            expiresAt: now + expireDurationMs
+            expiresAt: now + expireDurationMs,
+            allowChat: !!token.allowChat
         });
         writeDb(data);
         return { success: true };
@@ -192,6 +193,7 @@ const db = {
         const data = readDb();
         if (!data.settings) {
             data.settings = {
+                isLive: false,
                 streamType: "twitch",
                 streamTitle: "FIFA World Cup 2026 Live",
                 twitchChannel: "riead07",
@@ -205,6 +207,7 @@ const db = {
     saveSettings: (settings) => {
         const data = readDb();
         data.settings = {
+            isLive: !!settings.isLive,
             streamType: settings.streamType || "twitch",
             streamTitle: settings.streamTitle || "FIFA World Cup 2026 Live",
             twitchChannel: settings.twitchChannel || "",
@@ -234,7 +237,8 @@ const db = {
                     key: t.key,
                     sessionId: s.id,
                     name: s.name || "Unknown",
-                    loginTime: s.loginTime || t.createdAt
+                    loginTime: s.loginTime || t.createdAt,
+                    allowChat: !!s.allowChat
                 });
             });
         });
@@ -256,6 +260,50 @@ const db = {
             return { success: true };
         }
         return { success: false, message: "Session not found." };
+    },
+    toggleSessionChat: (sessionId) => {
+        const data = readDb();
+        let found = false;
+        data.tokens.forEach(t => {
+            const session = t.sessions.find(s => s.id === sessionId);
+            if (session) {
+                session.allowChat = !session.allowChat;
+                found = true;
+            }
+        });
+        if (found) {
+            writeDb(data);
+            return { success: true };
+        }
+        return { success: false, message: "Session not found." };
+    },
+
+    getChatMessages: () => {
+        const data = readDb();
+        if (!data.chat) {
+            data.chat = [];
+            writeDb(data);
+        }
+        return data.chat;
+    },
+
+    addChatMessage: (senderName, text) => {
+        const data = readDb();
+        if (!data.chat) {
+            data.chat = [];
+        }
+        const message = {
+            id: Math.random().toString(36).substring(2, 10),
+            senderName: senderName,
+            text: text,
+            timestamp: new Date().toISOString()
+        };
+        data.chat.push(message);
+        if (data.chat.length > 50) {
+            data.chat = data.chat.slice(-50);
+        }
+        writeDb(data);
+        return { success: true, message };
     }
 };
 

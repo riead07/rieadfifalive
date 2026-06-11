@@ -186,20 +186,56 @@ app.post('/api/admin/kick-session', requireAdminAuth, (req, res) => {
     res.json(result);
 });
 
+app.post('/api/admin/toggle-session-chat', requireAdminAuth, (req, res) => {
+    const { sessionId } = req.body;
+    const result = db.toggleSessionChat(sessionId);
+    res.json(result);
+});
+
 // Settings operations
 app.get('/api/settings', requireUserAuth, (req, res) => {
     const licenseKey = req.cookies.license_key;
+    const sessionToken = req.cookies.user_session;
     const tokenData = db.getToken(licenseKey);
     const settings = db.getSettings();
+    if (!tokenData) {
+        return res.status(401).json({ success: false, message: "Unauthorized." });
+    }
+    const activeSession = tokenData.sessions.find(s => s.id === sessionToken);
     res.json({
         ...settings,
-        allowChat: tokenData ? !!tokenData.allowChat : false
+        allowChat: activeSession ? !!activeSession.allowChat : false,
+        viewerName: activeSession ? activeSession.name : "Viewer"
     });
 });
 
 app.post('/api/admin/settings', requireAdminAuth, (req, res) => {
-    const { streamType, streamTitle, twitchChannel, hlsUrl } = req.body;
-    const result = db.saveSettings({ streamType, streamTitle, twitchChannel, hlsUrl });
+    const { isLive, streamType, streamTitle, twitchChannel, hlsUrl } = req.body;
+    const result = db.saveSettings({ isLive, streamType, streamTitle, twitchChannel, hlsUrl });
+    res.json(result);
+});
+
+// Synchronized Chat operations
+app.get('/api/chat', requireUserAuth, (req, res) => {
+    res.json(db.getChatMessages());
+});
+
+app.post('/api/chat', requireUserAuth, (req, res) => {
+    const { text } = req.body;
+    if (!text || !text.trim()) {
+        return res.status(400).json({ success: false, message: "Message text is required." });
+    }
+    const licenseKey = req.cookies.license_key;
+    const sessionToken = req.cookies.user_session;
+    const tokenData = db.getToken(licenseKey);
+    if (!tokenData) {
+        return res.status(401).json({ success: false, message: "Unauthorized." });
+    }
+    const activeSession = tokenData.sessions.find(s => s.id === sessionToken);
+    if (!activeSession || !activeSession.allowChat) {
+        return res.status(403).json({ success: false, message: "You are not permitted to comment." });
+    }
+    const result = db.addChatMessage(activeSession.name, text.trim());
     res.json(result);
 });
 
