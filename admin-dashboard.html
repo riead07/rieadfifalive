@@ -404,6 +404,13 @@
                     </div>
                 </div>
 
+                <div class="form-grid" style="grid-template-columns: 1fr; border-top: 1px dashed rgba(29, 114, 242, 0.1); padding-top: 20px;">
+                    <div class="input-group">
+                        <label class="input-label">Standby Thumbnail / Poster Image URL (Optional)</label>
+                        <input type="text" id="thumbnail-url" class="form-input" placeholder="e.g. https://imgur.com/your-image.jpg">
+                    </div>
+                </div>
+
                 <button class="create-btn" onclick="saveStreamSettings()" style="width: 100%;">Apply Broadcast Settings</button>
             </div>
         </div>
@@ -533,6 +540,7 @@
                     document.getElementById('stream-type').value = settings.streamType || 'twitch';
                     document.getElementById('twitch-channel').value = settings.twitchChannel || '';
                     document.getElementById('hls-url').value = settings.hlsUrl || '';
+                    document.getElementById('thumbnail-url').value = settings.thumbnailUrl || '';
                     document.getElementById('broadcast-is-live').checked = !!settings.isLive;
                     updateBroadcastUI();
                     toggleSourceInputs();
@@ -545,6 +553,7 @@
             const streamType = document.getElementById('stream-type').value;
             const twitchChannel = document.getElementById('twitch-channel').value.trim();
             const hlsUrl = document.getElementById('hls-url').value.trim();
+            const thumbnailUrl = document.getElementById('thumbnail-url').value.trim();
             const isLive = document.getElementById('broadcast-is-live').checked;
 
             if (!streamTitle) {
@@ -555,7 +564,7 @@
             fetch('/api/admin/settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ isLive, streamTitle, streamType, twitchChannel, hlsUrl })
+                body: JSON.stringify({ isLive, streamTitle, streamType, twitchChannel, hlsUrl, thumbnailUrl })
             })
             .then(res => res.json())
             .then(data => {

@@ -210,8 +210,8 @@ app.get('/api/settings', requireUserAuth, (req, res) => {
 });
 
 app.post('/api/admin/settings', requireAdminAuth, (req, res) => {
-    const { isLive, streamType, streamTitle, twitchChannel, hlsUrl } = req.body;
-    const result = db.saveSettings({ isLive, streamType, streamTitle, twitchChannel, hlsUrl });
+    const { isLive, streamType, streamTitle, twitchChannel, hlsUrl, thumbnailUrl } = req.body;
+    const result = db.saveSettings({ isLive, streamType, streamTitle, twitchChannel, hlsUrl, thumbnailUrl });
     res.json(result);
 });
 

@@ -197,7 +197,8 @@ const db = {
                 streamType: "twitch",
                 streamTitle: "FIFA World Cup 2026 Live",
                 twitchChannel: "riead07",
-                hlsUrl: ""
+                hlsUrl: "",
+                thumbnailUrl: ""
             };
             writeDb(data);
         }
@@ -211,7 +212,8 @@ const db = {
             streamType: settings.streamType || "twitch",
             streamTitle: settings.streamTitle || "FIFA World Cup 2026 Live",
             twitchChannel: settings.twitchChannel || "",
-            hlsUrl: settings.hlsUrl || ""
+            hlsUrl: settings.hlsUrl || "",
+            thumbnailUrl: settings.thumbnailUrl || ""
         };
         writeDb(data);
         return { success: true, settings: data.settings };
