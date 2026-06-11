@@ -453,6 +453,7 @@
         <nav class="nav-links">
             <a href="#stream" class="nav-link active">Live Stream</a>
             <a href="#setup" class="nav-link">Setup Guide</a>
+            <a href="#" onclick="logoutUser()" class="nav-link" style="color: var(--danger-color);">Logout</a>
         </nav>
         <div class="status-badge">
             <div class="status-dot"></div>
@@ -569,6 +570,15 @@
 
     <script>
         // Interactive functions
+        function logoutUser() {
+            fetch('/api/logout', { method: 'POST' })
+                .then(() => {
+                    // Delete cookies manually just in case
+                    document.cookie = "user_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                    document.cookie = "license_key=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                    window.location.href = '/login';
+                });
+        }
         function switchTab(type) {
             const hlsGroup = document.getElementById('hls-input-group');
             const twitchGroup = document.getElementById('twitch-input-group');

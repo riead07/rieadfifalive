@@ -1,0 +1,12 @@
+{
+    "tokens": [
+        {
+            "key": "RIEAD",
+            "termDays": 36500,
+            "maxDevices": 100,
+            "status": "ACTIVE",
+            "createdAt": "2026-06-11T20:03:43.314Z",
+            "sessions": []
+        }
+    ]
+}

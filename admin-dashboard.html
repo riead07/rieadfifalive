@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Riead Fifa Command Center</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #030611;
+            --card-bg: #090e1a;
+            --accent-blue: #1d72f2;
+            --accent-cyan: #00f0ff;
+            --accent-green: #00ff87;
+            --text-primary: #ffffff;
+            --text-secondary: #4a5d78;
+            --border-color: rgba(29, 114, 242, 0.15);
+            --danger-color: #f84545;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: radial-gradient(circle at top, #091326 0%, #030611 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .logo-circle {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #152744 0%, #070d1a 100%);
+            border: 2px solid var(--accent-cyan);
+            margin: 0 auto 20px auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
+        }
+
+        .logo-inner {
+            font-size: 30px;
+        }
+
+        .main-title {
+            font-size: 26px;
+            font-weight: 800;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .status-indicator {
+            font-size: 11px;
+            font-weight: 800;
+            color: var(--accent-green);
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            border-bottom: 1px solid rgba(29, 114, 242, 0.1);
+            padding-bottom: 15px;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 800;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--accent-cyan);
+        }
+
+        /* Generate Form Fields */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr auto;
+            gap: 15px;
+            align-items: flex-end;
+        }
+
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .input-label {
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--accent-blue);
+        }
+
+        .form-input {
+            background: #03050c;
+            border: 1px solid rgba(29, 114, 242, 0.2);
+            border-radius: 6px;
+            padding: 12px 14px;
+            color: #fff;
+            font-size: 13px;
+            outline: none;
+            width: 100%;
+        }
+
+        .form-input:focus {
+            border-color: var(--accent-cyan);
+        }
+
+        .create-btn {
+            background: linear-gradient(135deg, #1d72f2 0%, #104fa8 100%);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 13px 24px;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(29, 114, 242, 0.3);
+            transition: transform 0.2s;
+        }
+
+        .create-btn:hover {
+            transform: scale(1.02);
+        }
+
+        .erase-btn {
+            background: rgba(248, 69, 69, 0.1);
+            border: 1px solid var(--danger-color);
+            color: var(--danger-color);
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .erase-btn:hover {
+            background: var(--danger-color);
+            color: #fff;
+        }
+
+        /* Terminals Table */
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        .terminal-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        .terminal-table th {
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--accent-blue);
+            padding: 12px 16px;
+            border-bottom: 2px solid rgba(29, 114, 242, 0.1);
+        }
+
+        .terminal-table td {
+            padding: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 13px;
+        }
+
+        .key-text {
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        .device-count {
+            font-size: 10px;
+            font-weight: 700;
+            color: #7b2cbf;
+            margin-top: 4px;
+        }
+
+        .term-text {
+            color: var(--text-secondary);
+        }
+
+        .status-badge {
+            font-weight: 800;
+            font-size: 11px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .status-active {
+            color: var(--accent-green);
+        }
+
+        .status-blocked {
+            color: var(--danger-color);
+        }
+
+        .action-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .action-btn {
+            background: #fff;
+            color: #000;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 12px;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .btn-block {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        .btn-block:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-delete {
+            background: rgba(248, 69, 69, 0.1);
+            color: var(--danger-color);
+        }
+
+        .btn-delete:hover {
+            background: rgba(248, 69, 69, 0.2);
+        }
+
+        .logout-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .logout-link a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            transition: color 0.3s;
+        }
+
+        .logout-link a:hover {
+            color: var(--accent-cyan);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        
+        <div class="header">
+            <div class="logo-circle">
+                <span class="logo-inner">⚽</span>
+            </div>
+            <h1 class="main-title">Command Center</h1>
+            <span class="status-indicator">Storage: Stable (Atlas/JSON)</span>
+        </div>
+
+        <!-- Generate Section -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Generate Riead Fifa Key</h2>
+            </div>
+            <div class="form-grid">
+                <div class="input-group">
+                    <label class="input-label">Token Identity</label>
+                    <input type="text" id="token-identity" class="form-input" placeholder="e.g. VIP-ACCESS" required>
+                </div>
+                <div class="input-group">
+                    <label class="input-label">Term (Days)</label>
+                    <input type="number" id="token-term" class="form-input" value="30" min="1" required>
+                </div>
+                <div class="input-group">
+                    <label class="input-label">Max Devices</label>
+                    <input type="number" id="token-devices" class="form-input" value="1" min="1" required>
+                </div>
+                <button class="create-btn" onclick="createToken()">Create Token</button>
+            </div>
+        </div>
+
+        <!-- Terminals Section -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Riead Fifa Terminals</h2>
+                <button class="erase-btn" onclick="eraseAllData()">Erase All Data 🚨</button>
+            </div>
+            <div class="table-wrapper">
+                <table class="terminal-table">
+                    <thead>
+                        <tr>
+                            <th>Licence Key</th>
+                            <th>Term</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="terminal-rows">
+                        <!-- Loaded dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="logout-link">
+            <a href="#" onclick="logoutAdmin()">Logout Secure Session</a>
+        </div>
+
+    </div>
+
+    <script>
+        // Load data on start
+        document.addEventListener('DOMContentLoaded', fetchTokens);
+
+        function fetchTokens() {
+            fetch('/api/admin/tokens')
+                .then(res => res.json())
+                .then(tokens => {
+                    const tbody = document.getElementById('terminal-rows');
+                    tbody.innerHTML = '';
+                    
+                    if (tokens.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-secondary);">No tokens active. Generate a key above.</td></tr>`;
+                        return;
+                    }
+
+                    tokens.forEach(t => {
+                        const tr = document.createElement('tr');
+                        
+                        const statusClass = t.status === 'ACTIVE' ? 'status-active' : 'status-blocked';
+                        const toggleLabel = t.status === 'ACTIVE' ? 'Block' : 'Activate';
+                        
+                        tr.innerHTML = `
+                            <td>
+                                <div class="key-text">${t.key}</div>
+                                <div class="device-count">Devices: ${t.sessions.length}/${t.maxDevices}</div>
+                            </td>
+                            <td>
+                                <span class="term-text">${t.termDays} Days</span>
+                            </td>
+                            <td>
+                                <span class="status-badge ${statusClass}">${t.status}</span>
+                            </td>
+                            <td>
+                                <div class="action-actions">
+                                    <button class="action-btn btn-block" onclick="toggleToken('${t.key}')">${toggleLabel}</button>
+                                    <button class="action-btn btn-delete" onclick="deleteToken('${t.key}')">Delete</button>
+                                </div>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                })
+                .catch(err => console.error(err));
+        }
+
+        function createToken() {
+            const key = document.getElementById('token-identity').value.trim();
+            const termDays = document.getElementById('token-term').value;
+            const maxDevices = document.getElementById('token-devices').value;
+
+            if (!key) {
+                alert("Please enter a token identity.");
+                return;
+            }
+
+            fetch('/api/admin/create-token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key, termDays, maxDevices })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('token-identity').value = '';
+                    fetchTokens();
+                } else {
+                    alert(data.message);
+                }
+            })
+            .catch(err => console.error(err));
+        }
+
+        function toggleToken(key) {
+            fetch('/api/admin/toggle-token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    fetchTokens();
+                } else {
+                    alert(data.message);
+                }
+            })
+            .catch(err => console.error(err));
+        }
+
+        function deleteToken(key) {
+            if (!confirm(`Are you sure you want to delete key: ${key}?`)) return;
+
+            fetch('/api/admin/delete-token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    fetchTokens();
+                } else {
+                    alert(data.message);
+                }
+            })
+            .catch(err => console.error(err));
+        }
+
+        function eraseAllData() {
+            if (!confirm("⚠️ WARNING: This will permanently delete ALL active license keys and disconnect all users. Continue?")) return;
+
+            fetch('/api/admin/clear-all', {
+                method: 'POST'
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    fetchTokens();
+                }
+            })
+            .catch(err => console.error(err));
+        }
+
+        function logoutAdmin() {
+            fetch('/api/admin/logout', { method: 'POST' })
+                .then(() => window.location.href = '/admin');
+        }
+    </script>
+</body>
+</html>

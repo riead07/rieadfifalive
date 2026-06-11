@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Riead Fifa Live Room Access</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #040814;
+            --card-bg: #090e1a;
+            --accent-green: #00ff87;
+            --accent-cyan: #00f0ff;
+            --text-primary: #ffffff;
+            --text-secondary: #4a5d78;
+            --border-color: rgba(0, 255, 135, 0.15);
+            --danger-color: #ff3366;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: radial-gradient(circle at center, #072218 0%, #040814 100%);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .login-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            width: 380px;
+            padding: 40px 30px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6), 0 0 50px rgba(0, 255, 135, 0.1);
+            text-align: center;
+            position: relative;
+            z-index: 2;
+        }
+
+        .logo-circle {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #0e271f 0%, #030a07 100%);
+            border: 2px solid var(--accent-green);
+            margin: 0 auto 25px auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 25px rgba(0, 255, 135, 0.3);
+            position: relative;
+        }
+
+        .logo-circle::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            border-top-color: var(--accent-cyan);
+            animation: spin 3s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .logo-inner {
+            font-size: 36px;
+        }
+
+        .title-primary {
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 2px;
+            background: linear-gradient(135deg, var(--accent-green), var(--accent-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .title-sub {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 30px;
+        }
+
+        .auth-label {
+            font-size: 10px;
+            color: var(--accent-green);
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            text-align: left;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .input-wrapper {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .key-input {
+            width: 100%;
+            background: #03050c;
+            border: 1px solid rgba(0, 255, 135, 0.3);
+            border-radius: 8px;
+            padding: 14px 16px;
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+            text-align: center;
+            text-transform: uppercase;
+            transition: border-color 0.3s, box-shadow 0.3s;
+            letter-spacing: 2px;
+            font-weight: 700;
+        }
+
+        .key-input:focus {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+        }
+
+        .authorize-btn {
+            width: 100%;
+            background: linear-gradient(135deg, var(--accent-green) 0%, #00b359 100%);
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            padding: 14px;
+            font-size: 13px;
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: opacity 0.3s, transform 0.2s;
+            box-shadow: 0 4px 15px rgba(0, 255, 135, 0.3);
+        }
+
+        .authorize-btn:hover {
+            opacity: 0.95;
+            transform: translateY(-1px);
+        }
+
+        .error-message {
+            color: var(--danger-color);
+            font-size: 12px;
+            margin-top: 15px;
+            display: none;
+            font-weight: 600;
+        }
+
+        .grid-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 255, 135, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 135, 0.02) 1px, transparent 1px);
+            background-size: 40px 40px;
+            z-index: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="grid-bg"></div>
+
+    <div class="login-card">
+        <div class="logo-circle">
+            <span class="logo-inner">⚽</span>
+        </div>
+        <h2 class="title-primary">Riead Fifa Live</h2>
+        <h3 class="title-sub">Private Room Access</h3>
+
+        <div class="input-wrapper">
+            <label class="auth-label">Enter License Key</label>
+            <input type="text" id="license-key" class="key-input" placeholder="e.g. VIP-ACCESS" autofocus>
+        </div>
+
+        <button class="authorize-btn" onclick="loginUser()">Authorize Room Access</button>
+        <div class="error-message" id="err-msg">Access Denied. Invalid or expired key.</div>
+    </div>
+
+    <script>
+        // Handle enter key submit
+        document.getElementById('license-key').addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                loginUser();
+            }
+        });
+
+        function loginUser() {
+            const licenseKey = document.getElementById('license-key').value.trim();
+            const errMsg = document.getElementById('err-msg');
+            
+            errMsg.style.display = 'none';
+
+            if (!licenseKey) {
+                errMsg.innerText = "Please enter your license key.";
+                errMsg.style.display = 'block';
+                return;
+            }
+
+            fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ licenseKey })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = '/';
+                } else {
+                    errMsg.innerText = data.message;
+                    errMsg.style.display = 'block';
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                errMsg.innerText = "Connection Error.";
+                errMsg.style.display = 'block';
+            });
+        }
+    </script>
+</body>
+</html>
