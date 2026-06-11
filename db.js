@@ -198,6 +198,7 @@ const db = {
                 streamTitle: "FIFA World Cup 2026 Live",
                 whipKey: "rieadfifa26",
                 hlsUrl: "",
+                youtubeUrl: "",
                 thumbnailUrl: ""
             };
             writeDb(data);
@@ -218,6 +219,7 @@ const db = {
             streamTitle: settings.streamTitle || "FIFA World Cup 2026 Live",
             whipKey: settings.whipKey || "rieadfifa26",
             hlsUrl: settings.hlsUrl || "",
+            youtubeUrl: settings.youtubeUrl || "",
             thumbnailUrl: settings.thumbnailUrl || ""
         };
         writeDb(data);

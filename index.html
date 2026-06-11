@@ -564,6 +564,12 @@
         let plyrPlayer = null;
         let hlsInstance = null;
 
+        function getYouTubeId(url) {
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[2].length === 11) ? match[2] : url;
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             loadStreamSettings();
             loadChatMessages();
@@ -629,7 +635,7 @@
                         dot.style.background = 'var(--danger-color)';
                         text.innerText = 'OFFLINE';
                     } else {
-                        const sourceKey = `${settings.streamType}_${settings.whipKey || settings.hlsUrl}`;
+                        const sourceKey = `${settings.streamType}_${settings.whipKey || settings.hlsUrl || settings.youtubeUrl}`;
                         
                         badge.style.background = 'rgba(0, 255, 135, 0.1)';
                         badge.style.borderColor = 'var(--accent-green)';
@@ -663,6 +669,35 @@
                                 iframe.src = `https://vdo.ninja/?view=${settings.whipKey}&autoplay=1&controlbar=0&audio=1&videobitrate=6000&codec=h264`;
                                 iframe.frameBorder = "0";
                                 iframe.allow = "autoplay; encrypted-media; fullscreen";
+                                iframe.allowFullscreen = true;
+                                iframe.style.width = "100%";
+                                iframe.style.height = "100%";
+                                iframe.style.position = "absolute";
+                                iframe.style.top = "0";
+                                iframe.style.left = "0";
+                                iframe.style.zIndex = "1";
+                                playerWrapper.appendChild(iframe);
+                            } else if (settings.streamType === 'youtube' && settings.youtubeUrl) {
+                                placeholder.style.display = 'none';
+                                video.style.display = 'none';
+                                
+                                if (plyrPlayer) {
+                                    plyrPlayer.destroy();
+                                    plyrPlayer = null;
+                                }
+                                if (hlsInstance) {
+                                    hlsInstance.destroy();
+                                    hlsInstance = null;
+                                }
+
+                                const playerWrapper = document.querySelector('.player-wrapper');
+                                const youtubeId = getYouTubeId(settings.youtubeUrl);
+                                
+                                const iframe = document.createElement('iframe');
+                                iframe.id = 'twitch-player-iframe';
+                                iframe.src = `https://www.youtube.com/embed/${youtubeId}?autoplay=1&mute=0&controls=1&rel=0`;
+                                iframe.frameBorder = "0";
+                                iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
                                 iframe.allowFullscreen = true;
                                 iframe.style.width = "100%";
                                 iframe.style.height = "100%";
