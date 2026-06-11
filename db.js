@@ -62,7 +62,8 @@ if (isMongo) {
         hlsUrl: { type: String, default: "" },
         youtubeUrl: { type: String, default: "" },
         thumbnailUrl: { type: String, default: "" },
-        twitchChannel: { type: String, default: "" }
+        twitchChannel: { type: String, default: "" },
+        kickChannel: { type: String, default: "" }
     });
     SettingsModel = mongoose.model('Settings', SettingsSchema);
 
@@ -434,7 +435,8 @@ const db = {
                         hlsUrl: "",
                         youtubeUrl: "",
                         thumbnailUrl: "",
-                        twitchChannel: ""
+                        twitchChannel: "",
+                        kickChannel: ""
                     });
                     await settings.save();
                 }
@@ -453,7 +455,8 @@ const db = {
                 hlsUrl: "",
                 youtubeUrl: "",
                 thumbnailUrl: "",
-                twitchChannel: ""
+                twitchChannel: "",
+                kickChannel: ""
             };
             writeDb(data);
         }
@@ -475,6 +478,7 @@ const db = {
                 doc.youtubeUrl = settings.youtubeUrl || "";
                 doc.thumbnailUrl = settings.thumbnailUrl || "";
                 doc.twitchChannel = settings.twitchChannel || "";
+                doc.kickChannel = settings.kickChannel || "";
                 await doc.save();
                 return { success: true, settings: doc.toObject() };
             } catch (err) {
@@ -490,7 +494,8 @@ const db = {
             hlsUrl: settings.hlsUrl || "",
             youtubeUrl: settings.youtubeUrl || "",
             thumbnailUrl: settings.thumbnailUrl || "",
-            twitchChannel: settings.twitchChannel || ""
+            twitchChannel: settings.twitchChannel || "",
+            kickChannel: settings.kickChannel || ""
         };
         writeDb(data);
         return { success: true, settings: data.settings };
