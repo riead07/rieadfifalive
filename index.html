@@ -480,30 +480,6 @@
                     <button class="control-btn" onclick="toggleMute()">Mute/Unmute</button>
                 </div>
             </div>
-
-            <div class="secure-panel">
-                <div class="secure-title">🔒 Secure Access & Control Panel</div>
-                <div style="display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 10px;">
-                    <button class="control-btn" id="tab-twitch-btn" onclick="switchTab('twitch')" style="background: var(--accent-green); color: #000;">Twitch Live Embed (Recommended)</button>
-                    <button class="control-btn" id="tab-hls-btn" onclick="switchTab('hls')">Custom HLS Stream</button>
-                </div>
-                
-                <div id="hls-input-group" style="display: none;">
-                    <div class="input-group">
-                        <label class="input-label">Private Stream Source URL (HLS / m3u8 / MP4)</label>
-                        <input type="text" id="stream-url" class="secure-input" placeholder="https://your-secure-server.com/live/stream.m3u8" value="">
-                    </div>
-                    <button class="action-btn" onclick="connectStream()">Connect Stream Securely</button>
-                </div>
-
-                <div id="twitch-input-group">
-                    <div class="input-group">
-                        <label class="input-label">Twitch Username / Channel Name</label>
-                        <input type="text" id="twitch-username" class="secure-input" placeholder="e.g. rieadlivefifa" value="riead07">
-                    </div>
-                    <button class="action-btn" onclick="connectTwitch()">Connect Twitch Stream</button>
-                </div>
-            </div>
         </div>
 
         <div class="sidebar">
@@ -579,85 +555,71 @@
                     window.location.href = '/login';
                 });
         }
-        function switchTab(type) {
-            const hlsGroup = document.getElementById('hls-input-group');
-            const twitchGroup = document.getElementById('twitch-input-group');
-            const hlsBtn = document.getElementById('tab-hls-btn');
-            const twitchBtn = document.getElementById('tab-twitch-btn');
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStreamSettings();
+        });
 
-            if (type === 'hls') {
-                hlsGroup.style.display = 'block';
-                twitchGroup.style.display = 'none';
-                hlsBtn.style.background = 'var(--accent-green)';
-                hlsBtn.style.color = '#000';
-                twitchBtn.style.background = 'rgba(255, 255, 255, 0.1)';
-                twitchBtn.style.color = '#fff';
-            } else {
-                hlsGroup.style.display = 'none';
-                twitchGroup.style.display = 'block';
-                twitchBtn.style.background = 'var(--accent-green)';
-                twitchBtn.style.color = '#000';
-                hlsBtn.style.background = 'rgba(255, 255, 255, 0.1)';
-                hlsBtn.style.color = '#fff';
-            }
-        }
+        function loadStreamSettings() {
+            fetch('/api/settings')
+                .then(res => res.json())
+                .then(settings => {
+                    // Update Title
+                    document.querySelector('.stream-title').innerText = settings.streamTitle || 'FIFA World Cup Live Broadcast';
+                    
+                    const placeholder = document.getElementById('player-placeholder');
+                    const video = document.getElementById('live-video');
+                    
+                    const existingIframe = document.getElementById('twitch-player-iframe');
+                    if (existingIframe) existingIframe.remove();
 
-        function connectTwitch() {
-            const username = document.getElementById('twitch-username').value.trim();
-            const placeholder = document.getElementById('player-placeholder');
-            const video = document.getElementById('live-video');
+                    if (settings.streamType === 'twitch' && settings.twitchChannel) {
+                        placeholder.style.display = 'none';
+                        video.style.display = 'none';
+                        
+                        const currentDomain = window.location.hostname;
+                        const playerWrapper = document.querySelector('.player-wrapper');
+                        
+                        const iframe = document.createElement('iframe');
+                        iframe.id = 'twitch-player-iframe';
+                        iframe.src = `https://player.twitch.tv/?channel=${settings.twitchChannel}&parent=${currentDomain}&autoplay=true&muted=false`;
+                        iframe.frameBorder = "0";
+                        iframe.allowFullscreen = true;
+                        iframe.scrolling = "no";
+                        iframe.style.width = "100%";
+                        iframe.style.height = "100%";
+                        iframe.style.position = "absolute";
+                        iframe.style.top = "0";
+                        iframe.style.left = "0";
+                        iframe.style.zIndex = "1";
+                        playerWrapper.appendChild(iframe);
+                    } else if (settings.streamType === 'hls' && settings.hlsUrl) {
+                        placeholder.style.display = 'none';
+                        video.style.display = 'block';
+                        video.src = settings.hlsUrl;
+                        video.play().catch(e => console.log('Autoplay blocked', e));
+                    } else {
+                        placeholder.style.display = 'flex';
+                        video.style.display = 'none';
+                    }
 
-            if (!username) {
-                alert('Please enter your Twitch username.');
-                return;
-            }
-
-            placeholder.style.display = 'none';
-            video.style.display = 'none'; // hide native video
-            
-            // Check if player iframe already exists, if so, remove it
-            const existingIframe = document.getElementById('twitch-player-iframe');
-            if (existingIframe) existingIframe.remove();
-
-            const currentDomain = window.location.hostname;
-            const playerWrapper = document.querySelector('.player-wrapper');
-            
-            const iframe = document.createElement('iframe');
-            iframe.id = 'twitch-player-iframe';
-            iframe.src = `https://player.twitch.tv/?channel=${username}&parent=${currentDomain}&autoplay=true&muted=true`;
-            iframe.frameBorder = "0";
-            iframe.allowFullscreen = true;
-            iframe.scrolling = "no";
-            iframe.style.width = "100%";
-            iframe.style.height = "100%";
-            iframe.style.position = "absolute";
-            iframe.style.top = "0";
-            iframe.style.left = "0";
-            iframe.style.zIndex = "1";
-
-            playerWrapper.appendChild(iframe);
-        }
-
-        function connectStream() {
-            // Remove twitch iframe if exists
-            const existingIframe = document.getElementById('twitch-player-iframe');
-            if (existingIframe) existingIframe.remove();
-
-            const urlInput = document.getElementById('stream-url').value;
-            const video = document.getElementById('live-video');
-            const placeholder = document.getElementById('player-placeholder');
-
-            if (!urlInput) {
-                alert('Please enter a valid secure stream URL.');
-                return;
-            }
-
-            placeholder.style.display = 'none';
-            video.style.display = 'block';
-            video.src = urlInput;
-            video.play().catch(e => {
-                alert('Playback failed: Ensure the URL is accessible and CORS is enabled.');
-            });
+                    // Chat permission handling
+                    const chatInput = document.getElementById('chat-msg');
+                    const sendBtn = document.querySelector('.send-btn');
+                    if (!settings.allowChat) {
+                        chatInput.disabled = true;
+                        chatInput.placeholder = "🔒 Chat disabled by Administrator";
+                        sendBtn.style.opacity = "0.5";
+                        sendBtn.style.cursor = "not-allowed";
+                        sendBtn.onclick = null;
+                    } else {
+                        chatInput.disabled = false;
+                        chatInput.placeholder = "Type a message...";
+                        sendBtn.style.opacity = "1";
+                        sendBtn.style.cursor = "pointer";
+                        sendBtn.onclick = sendMessage;
+                    }
+                })
+                .catch(err => console.error(err));
         }
 
         function togglePlay() {

@@ -70,7 +70,7 @@ const db = {
         return tokens.find(t => t.key.toUpperCase() === key.toUpperCase());
     },
 
-    createToken: (key, termDays, maxDevices) => {
+    createToken: (key, termDays, maxDevices, allowChat = false) => {
         const data = readDb();
         if (data.tokens.some(t => t.key.toUpperCase() === key.toUpperCase())) {
             return { success: false, message: "Token already exists." };
@@ -79,6 +79,7 @@ const db = {
             key: key.trim(),
             termDays: parseInt(termDays) || 30,
             maxDevices: parseInt(maxDevices) || 1,
+            allowChat: !!allowChat,
             status: "ACTIVE",
             createdAt: new Date().toISOString(),
             sessions: []
@@ -121,7 +122,7 @@ const db = {
     },
 
     // Session validation
-    addSession: (key, sessionId, expireDurationMs = 24 * 60 * 60 * 1000) => {
+    addSession: (key, name, sessionId, expireDurationMs = 24 * 60 * 60 * 1000) => {
         const data = readDb();
         const token = data.tokens.find(t => t.key.toUpperCase() === key.toUpperCase());
         if (!token) return { success: false, message: "Invalid license key." };
@@ -144,6 +145,7 @@ const db = {
         const existingSession = token.sessions.find(s => s.id === sessionId);
         if (existingSession) {
             existingSession.expiresAt = now + expireDurationMs; // Extend session
+            existingSession.name = name.trim();
             writeDb(data);
             return { success: true };
         }
@@ -156,6 +158,8 @@ const db = {
         // Add new session
         token.sessions.push({
             id: sessionId,
+            name: name.trim(),
+            loginTime: new Date().toISOString(),
             expiresAt: now + expireDurationMs
         });
         writeDb(data);
@@ -182,6 +186,76 @@ const db = {
             return { success: true };
         }
         return { success: false, message: "Token not found." };
+    },
+
+    getSettings: () => {
+        const data = readDb();
+        if (!data.settings) {
+            data.settings = {
+                streamType: "twitch",
+                streamTitle: "FIFA World Cup 2026 Live",
+                twitchChannel: "riead07",
+                hlsUrl: ""
+            };
+            writeDb(data);
+        }
+        return data.settings;
+    },
+
+    saveSettings: (settings) => {
+        const data = readDb();
+        data.settings = {
+            streamType: settings.streamType || "twitch",
+            streamTitle: settings.streamTitle || "FIFA World Cup 2026 Live",
+            twitchChannel: settings.twitchChannel || "",
+            hlsUrl: settings.hlsUrl || ""
+        };
+        writeDb(data);
+        return { success: true, settings: data.settings };
+    },
+
+    toggleChatPermission: (key) => {
+        const data = readDb();
+        const token = data.tokens.find(t => t.key.toUpperCase() === key.toUpperCase());
+        if (token) {
+            token.allowChat = !token.allowChat;
+            writeDb(data);
+            return { success: true, token };
+        }
+        return { success: false, message: "Token not found." };
+    },
+
+    getActiveSessions: () => {
+        const tokens = db.getTokens(); // Cleans expired sessions internally
+        const activeSessions = [];
+        tokens.forEach(t => {
+            t.sessions.forEach(s => {
+                activeSessions.push({
+                    key: t.key,
+                    sessionId: s.id,
+                    name: s.name || "Unknown",
+                    loginTime: s.loginTime || t.createdAt
+                });
+            });
+        });
+        return activeSessions.sort((a, b) => new Date(b.loginTime) - new Date(a.loginTime));
+    },
+
+    kickSession: (sessionId) => {
+        const data = readDb();
+        let kicked = false;
+        data.tokens.forEach(t => {
+            const initialCount = t.sessions.length;
+            t.sessions = t.sessions.filter(s => s.id !== sessionId);
+            if (t.sessions.length < initialCount) {
+                kicked = true;
+            }
+        });
+        if (kicked) {
+            writeDb(data);
+            return { success: true };
+        }
+        return { success: false, message: "Session not found." };
     }
 };
 

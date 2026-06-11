@@ -195,8 +195,13 @@
         <h3 class="title-sub">Private Room Access</h3>
 
         <div class="input-wrapper">
+            <label class="auth-label">Enter Your Name</label>
+            <input type="text" id="viewer-name" class="key-input" placeholder="Enter your name" style="text-transform: none; letter-spacing: normal; font-weight: normal; margin-bottom: 15px;" autofocus>
+        </div>
+
+        <div class="input-wrapper">
             <label class="auth-label">Enter License Key</label>
-            <input type="text" id="license-key" class="key-input" placeholder="e.g. VIP-ACCESS" autofocus>
+            <input type="text" id="license-key" class="key-input" placeholder="e.g. VIP-ACCESS">
         </div>
 
         <button class="authorize-btn" onclick="loginUser()">Authorize Room Access</button>
@@ -205,6 +210,12 @@
 
     <script>
         // Handle enter key submit
+        document.getElementById('viewer-name').addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                document.getElementById('license-key').focus();
+            }
+        });
+
         document.getElementById('license-key').addEventListener('keydown', function(event) {
             if (event.key === 'Enter') {
                 loginUser();
@@ -212,10 +223,17 @@
         });
 
         function loginUser() {
+            const name = document.getElementById('viewer-name').value.trim();
             const licenseKey = document.getElementById('license-key').value.trim();
             const errMsg = document.getElementById('err-msg');
             
             errMsg.style.display = 'none';
+
+            if (!name) {
+                errMsg.innerText = "Please enter your name.";
+                errMsg.style.display = 'block';
+                return;
+            }
 
             if (!licenseKey) {
                 errMsg.innerText = "Please enter your license key.";
@@ -226,7 +244,7 @@
             fetch('/api/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ licenseKey })
+                body: JSON.stringify({ licenseKey, name })
             })
             .then(res => res.json())
             .then(data => {

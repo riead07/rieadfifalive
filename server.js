@@ -77,13 +77,13 @@ app.get('/admin/dashboard', requireAdminAuth, (req, res) => {
 
 // API endpoints for User authentication
 app.post('/api/login', (req, res) => {
-    const { licenseKey } = req.body;
-    if (!licenseKey) {
-        return res.status(400).json({ success: false, message: "License key is required." });
+    const { licenseKey, name } = req.body;
+    if (!name || !licenseKey) {
+        return res.status(400).json({ success: false, message: "Name and License key are required." });
     }
 
     const sessionId = crypto.randomBytes(16).toString('hex');
-    const result = db.addSession(licenseKey, sessionId);
+    const result = db.addSession(licenseKey, name, sessionId);
 
     if (result.success) {
         res.cookie('user_session', sessionId, { maxAge: 24 * 60 * 60 * 1000, httpOnly: true });
@@ -126,11 +126,11 @@ app.get('/api/admin/tokens', requireAdminAuth, (req, res) => {
 });
 
 app.post('/api/admin/create-token', requireAdminAuth, (req, res) => {
-    const { key, termDays, maxDevices } = req.body;
+    const { key, termDays, maxDevices, allowChat } = req.body;
     if (!key) {
         return res.status(400).json({ success: false, message: "Token Key is required." });
     }
-    const result = db.createToken(key.toUpperCase(), termDays, maxDevices);
+    const result = db.createToken(key.toUpperCase(), termDays, maxDevices, allowChat);
     if (result.success) {
         return res.json({ success: true, token: result.token });
     } else {
@@ -164,6 +164,42 @@ app.post('/api/admin/clear-all', requireAdminAuth, (req, res) => {
 app.post('/api/admin/clear-sessions', requireAdminAuth, (req, res) => {
     const { key } = req.body;
     const result = db.clearSessions(key);
+    res.json(result);
+});
+
+app.post('/api/admin/toggle-chat', requireAdminAuth, (req, res) => {
+    const { key } = req.body;
+    const result = db.toggleChatPermission(key);
+    if (result.success) {
+        return res.json({ success: true, token: result.token });
+    }
+    return res.status(400).json({ success: false, message: result.message });
+});
+
+app.get('/api/admin/sessions', requireAdminAuth, (req, res) => {
+    res.json(db.getActiveSessions());
+});
+
+app.post('/api/admin/kick-session', requireAdminAuth, (req, res) => {
+    const { sessionId } = req.body;
+    const result = db.kickSession(sessionId);
+    res.json(result);
+});
+
+// Settings operations
+app.get('/api/settings', requireUserAuth, (req, res) => {
+    const licenseKey = req.cookies.license_key;
+    const tokenData = db.getToken(licenseKey);
+    const settings = db.getSettings();
+    res.json({
+        ...settings,
+        allowChat: tokenData ? !!tokenData.allowChat : false
+    });
+});
+
+app.post('/api/admin/settings', requireAdminAuth, (req, res) => {
+    const { streamType, streamTitle, twitchChannel, hlsUrl } = req.body;
+    const result = db.saveSettings({ streamType, streamTitle, twitchChannel, hlsUrl });
     res.json(result);
 });
 

@@ -312,12 +312,47 @@
             <span class="status-indicator">Storage: Stable (Atlas/JSON)</span>
         </div>
 
+        <!-- Broadcast Settings -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Live Broadcast Control Panel 📺</h2>
+            </div>
+            <div style="display: grid; gap: 20px;">
+                <div class="form-grid" style="grid-template-columns: 2fr 1fr; border-bottom: 1px dashed rgba(29, 114, 242, 0.1); padding-bottom: 20px;">
+                    <div class="input-group">
+                        <label class="input-label">Live Stream Name/Title</label>
+                        <input type="text" id="stream-title" class="form-input" placeholder="e.g. AO VIVO: Brasil vs Argentina - Copa do Mundo 4K" required>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">Stream Source Type</label>
+                        <select id="stream-type" class="form-input" onchange="toggleSourceInputs()">
+                            <option value="twitch">Twitch Live Channel (Recommended)</option>
+                            <option value="hls">Custom HLS URL (.m3u8)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-grid" style="grid-template-columns: 1fr;">
+                    <div class="input-group" id="twitch-channel-group">
+                        <label class="input-label">Twitch Channel/Username (Log in to OBS with this)</label>
+                        <input type="text" id="twitch-channel" class="form-input" placeholder="e.g. riead07">
+                    </div>
+                    <div class="input-group" id="hls-url-group" style="display: none;">
+                        <label class="input-label">Custom HLS URL (.m3u8 / .mp4)</label>
+                        <input type="text" id="hls-url" class="form-input" placeholder="e.g. https://your-server.com/live/stream.m3u8">
+                    </div>
+                </div>
+
+                <button class="create-btn" onclick="saveStreamSettings()" style="width: 100%;">Apply Broadcast Settings</button>
+            </div>
+        </div>
+
         <!-- Generate Section -->
         <div class="card">
             <div class="card-header">
                 <h2 class="card-title">Generate Riead Fifa Key</h2>
             </div>
-            <div class="form-grid">
+            <div class="form-grid" style="grid-template-columns: 2fr 1fr 1fr 1.5fr auto;">
                 <div class="input-group">
                     <label class="input-label">Token Identity</label>
                     <input type="text" id="token-identity" class="form-input" placeholder="e.g. VIP-ACCESS" required>
@@ -329,6 +364,10 @@
                 <div class="input-group">
                     <label class="input-label">Max Devices</label>
                     <input type="number" id="token-devices" class="form-input" value="1" min="1" required>
+                </div>
+                <div class="input-group" style="flex-direction: row; align-items: center; gap: 8px; height: 43px; padding-bottom: 2px;">
+                    <input type="checkbox" id="token-chat" style="width: 18px; height: 18px; cursor: pointer;">
+                    <label class="input-label" style="margin-bottom: 0; cursor: pointer;" for="token-chat">Allow Comments</label>
                 </div>
                 <button class="create-btn" onclick="createToken()">Create Token</button>
             </div>
@@ -357,6 +396,28 @@
             </div>
         </div>
 
+        <!-- Live Watchers Section -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title" style="color: var(--accent-green);">🔴 Active Live Watchers</h2>
+            </div>
+            <div class="table-wrapper">
+                <table class="terminal-table">
+                    <thead>
+                        <tr>
+                            <th>Viewer Name</th>
+                            <th>License Key Used</th>
+                            <th>Login Time</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="viewer-rows">
+                        <!-- Loaded dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <div class="logout-link">
             <a href="#" onclick="logoutAdmin()">Logout Secure Session</a>
         </div>
@@ -365,7 +426,71 @@
 
     <script>
         // Load data on start
-        document.addEventListener('DOMContentLoaded', fetchTokens);
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchTokens();
+            loadSettings();
+            fetchActiveSessions();
+            
+            // Auto refresh tokens and viewer lists every 5 seconds
+            setInterval(() => {
+                fetchTokens();
+                fetchActiveSessions();
+            }, 5000);
+        });
+
+        function toggleSourceInputs() {
+            const type = document.getElementById('stream-type').value;
+            const twitchGroup = document.getElementById('twitch-channel-group');
+            const hlsGroup = document.getElementById('hls-url-group');
+
+            if (type === 'twitch') {
+                twitchGroup.style.display = 'block';
+                hlsGroup.style.display = 'none';
+            } else {
+                twitchGroup.style.display = 'none';
+                hlsGroup.style.display = 'block';
+            }
+        }
+
+        function loadSettings() {
+            fetch('/api/settings')
+                .then(res => res.json())
+                .then(settings => {
+                    document.getElementById('stream-title').value = settings.streamTitle || '';
+                    document.getElementById('stream-type').value = settings.streamType || 'twitch';
+                    document.getElementById('twitch-channel').value = settings.twitchChannel || '';
+                    document.getElementById('hls-url').value = settings.hlsUrl || '';
+                    toggleSourceInputs();
+                })
+                .catch(err => console.error(err));
+        }
+
+        function saveStreamSettings() {
+            const streamTitle = document.getElementById('stream-title').value.trim();
+            const streamType = document.getElementById('stream-type').value;
+            const twitchChannel = document.getElementById('twitch-channel').value.trim();
+            const hlsUrl = document.getElementById('hls-url').value.trim();
+
+            if (!streamTitle) {
+                alert("Please enter a live stream name/title.");
+                return;
+            }
+
+            fetch('/api/admin/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ streamTitle, streamType, twitchChannel, hlsUrl })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert("Broadcast settings applied successfully!");
+                } else {
+                    alert("Failed to apply settings.");
+                }
+            })
+            .catch(err => console.error(err));
+        }
 
         function fetchTokens() {
             fetch('/api/admin/tokens')
@@ -385,10 +510,13 @@
                         const statusClass = t.status === 'ACTIVE' ? 'status-active' : 'status-blocked';
                         const toggleLabel = t.status === 'ACTIVE' ? 'Block' : 'Activate';
                         
+                        const chatStatus = t.allowChat ? '<span style="color: var(--accent-green);">Chat OK</span>' : '<span style="color: var(--text-secondary);">Chat Off</span>';
+                        const chatToggleLabel = t.allowChat ? 'Mute Chat' : 'Allow Chat';
+                        
                         tr.innerHTML = `
                             <td>
                                 <div class="key-text">${t.key}</div>
-                                <div class="device-count">Devices: ${t.sessions.length}/${t.maxDevices}</div>
+                                <div class="device-count">Devices: ${t.sessions.length}/${t.maxDevices} | ${chatStatus}</div>
                             </td>
                             <td>
                                 <span class="term-text">${t.termDays} Days</span>
@@ -399,6 +527,7 @@
                             <td>
                                 <div class="action-actions">
                                     <button class="action-btn btn-block" onclick="toggleToken('${t.key}')">${toggleLabel}</button>
+                                    <button class="action-btn" style="background: rgba(0, 255, 135, 0.15); color: var(--accent-green);" onclick="toggleChat('${t.key}')">${chatToggleLabel}</button>
                                     <button class="action-btn" style="background: rgba(0, 240, 255, 0.15); color: var(--accent-cyan);" onclick="resetSessions('${t.key}')">Reset</button>
                                     <button class="action-btn btn-delete" onclick="deleteToken('${t.key}')">Delete</button>
                                 </div>
@@ -414,6 +543,7 @@
             const key = document.getElementById('token-identity').value.trim();
             const termDays = document.getElementById('token-term').value;
             const maxDevices = document.getElementById('token-devices').value;
+            const allowChat = document.getElementById('token-chat').checked;
 
             if (!key) {
                 alert("Please enter a token identity.");
@@ -423,12 +553,13 @@
             fetch('/api/admin/create-token', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ key, termDays, maxDevices })
+                body: JSON.stringify({ key, termDays, maxDevices, allowChat })
             })
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
                     document.getElementById('token-identity').value = '';
+                    document.getElementById('token-chat').checked = false;
                     fetchTokens();
                 } else {
                     alert(data.message);
@@ -473,6 +604,23 @@
             .catch(err => console.error(err));
         }
 
+        function toggleChat(key) {
+            fetch('/api/admin/toggle-chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    fetchTokens();
+                } else {
+                    alert(data.message);
+                }
+            })
+            .catch(err => console.error(err));
+        }
+
         function deleteToken(key) {
             if (!confirm(`Are you sure you want to delete key: ${key}?`)) return;
 
@@ -502,6 +650,62 @@
             .then(data => {
                 if (data.success) {
                     fetchTokens();
+                }
+            })
+            .catch(err => console.error(err));
+        }
+
+        function fetchActiveSessions() {
+            fetch('/api/admin/sessions')
+                .then(res => res.json())
+                .then(sessions => {
+                    const tbody = document.getElementById('viewer-rows');
+                    tbody.innerHTML = '';
+
+                    if (sessions.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-secondary);">No active viewers right now.</td></tr>`;
+                        return;
+                    }
+
+                    sessions.forEach(s => {
+                        const tr = document.createElement('tr');
+                        const loginDate = new Date(s.loginTime).toLocaleString();
+                        
+                        tr.innerHTML = `
+                            <td>
+                                <div class="key-text" style="color: var(--accent-green);">${s.name}</div>
+                            </td>
+                            <td>
+                                <span class="term-text">${s.key}</span>
+                            </td>
+                            <td>
+                                <span class="term-text">${loginDate}</span>
+                            </td>
+                            <td>
+                                <button class="action-btn btn-delete" onclick="kickSession('${s.sessionId}')">Disconnect / Kick</button>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                })
+                .catch(err => console.error(err));
+        }
+
+        function kickSession(sessionId) {
+            if (!confirm("Are you sure you want to disconnect this viewer?")) return;
+
+            fetch('/api/admin/kick-session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionId })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    fetchActiveSessions();
+                    fetchTokens();
+                } else {
+                    alert(data.message);
                 }
             })
             .catch(err => console.error(err));
