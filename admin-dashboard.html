@@ -406,8 +406,16 @@
 
                 <div class="form-grid" style="grid-template-columns: 1fr; border-top: 1px dashed rgba(29, 114, 242, 0.1); padding-top: 20px;">
                     <div class="input-group">
-                        <label class="input-label">Standby Thumbnail / Poster Image URL (Optional)</label>
-                        <input type="text" id="thumbnail-url" class="form-input" placeholder="e.g. https://imgur.com/your-image.jpg">
+                        <label class="input-label">Standby Thumbnail / Poster Image</label>
+                        <div style="display: flex; gap: 15px; align-items: center; width: 100%;">
+                            <input type="file" id="thumbnail-file" class="form-input" accept="image/*" onchange="handleThumbnailUpload(this)" style="padding: 8px;">
+                            <input type="hidden" id="thumbnail-url">
+                            <div id="thumbnail-preview-container" style="display: none; position: relative;">
+                                <img id="thumbnail-preview" src="" style="height: 42px; border-radius: 6px; border: 1px solid var(--accent-cyan); display: block;">
+                                <button type="button" onclick="clearThumbnail()" style="position: absolute; top: -6px; right: -6px; background: var(--danger-color); color: white; border: none; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold;">×</button>
+                            </div>
+                        </div>
+                        <span style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">Upload any image from your PC (Max size 1.5MB) to show when stream is offline.</span>
                     </div>
                 </div>
 
@@ -540,7 +548,17 @@
                     document.getElementById('stream-type').value = settings.streamType || 'twitch';
                     document.getElementById('twitch-channel').value = settings.twitchChannel || '';
                     document.getElementById('hls-url').value = settings.hlsUrl || '';
-                    document.getElementById('thumbnail-url').value = settings.thumbnailUrl || '';
+                    
+                    const thumbnailVal = settings.thumbnailUrl || '';
+                    document.getElementById('thumbnail-url').value = thumbnailVal;
+                    if (thumbnailVal) {
+                        document.getElementById('thumbnail-preview').src = thumbnailVal;
+                        document.getElementById('thumbnail-preview-container').style.display = 'block';
+                    } else {
+                        document.getElementById('thumbnail-preview').src = '';
+                        document.getElementById('thumbnail-preview-container').style.display = 'none';
+                    }
+
                     document.getElementById('broadcast-is-live').checked = !!settings.isLive;
                     updateBroadcastUI();
                     toggleSourceInputs();
@@ -575,6 +593,33 @@
                 }
             })
             .catch(err => console.error(err));
+        }
+
+        function handleThumbnailUpload(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            if (file.size > 1.5 * 1024 * 1024) {
+                alert("Image file size should be less than 1.5MB to maintain fast loading.");
+                input.value = "";
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const base64Data = e.target.result;
+                document.getElementById('thumbnail-preview').src = base64Data;
+                document.getElementById('thumbnail-preview-container').style.display = 'block';
+                document.getElementById('thumbnail-url').value = base64Data;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearThumbnail() {
+            document.getElementById('thumbnail-file').value = "";
+            document.getElementById('thumbnail-url').value = "";
+            document.getElementById('thumbnail-preview').src = "";
+            document.getElementById('thumbnail-preview-container').style.display = 'none';
         }
 
         function fetchTokens() {
