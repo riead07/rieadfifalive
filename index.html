@@ -457,7 +457,6 @@
         </div>
         <nav class="nav-links">
             <a href="#stream" class="nav-link active">Live Stream</a>
-            <a href="#setup" class="nav-link">Setup Guide</a>
             <a href="#" onclick="logoutUser()" class="nav-link" style="color: var(--danger-color);">Logout</a>
         </nav>
         <div class="status-badge" id="header-status-badge" style="background: rgba(255, 56, 96, 0.1); border: 1px solid var(--danger-color); color: var(--danger-color); box-shadow: 0 0 15px rgba(255, 56, 96, 0.15);">
@@ -521,28 +520,7 @@
             </div>
         </div>
 
-        <div class="instructions-card" id="setup">
-            <h2 class="stream-title" style="margin-bottom: 10px;">🛠️ Secure Live Setup Instructions</h2>
-            <p style="color: var(--text-secondary); font-size: 14px;">Follow these steps to cast your OBS stream securely from your PC directly to your RieadLiveFIFA website on Render.</p>
-            
-            <div class="instructions-grid">
-                <div class="step-card">
-                    <div class="step-number">Step 01</div>
-                    <h4 class="step-title">OBS Streaming Service</h4>
-                    <p class="step-desc">Open OBS. Go to Settings > Stream. Select <strong>WHIP</strong> as the service (click "Show All..." to find it). Paste the Stream Server URL and Stream Key (Bearer Token) copied from the Admin Control Panel.</p>
-                </div>
-                <div class="step-card">
-                    <div class="step-number">Step 02</div>
-                    <h4 class="step-title">Enable Live Status</h4>
-                    <p class="step-desc">Go to your Admin Dashboard, configure your stream title and custom standby thumbnail, toggle the Broadcast switch to <strong>LIVE</strong>, and click <strong>Apply Broadcast Settings</strong>.</p>
-                </div>
-                <div class="step-card">
-                    <div class="step-number">Step 03</div>
-                    <h4 class="step-title">Start Cast</h4>
-                    <p class="step-desc">Click <strong>Start Streaming</strong> in OBS. Open your viewer page and watch the stream instantly load with ultra-low WebRTC latency!</p>
-                </div>
-            </div>
-        </div>
+
     </div>
 
     <footer>
