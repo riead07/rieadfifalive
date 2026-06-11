@@ -171,6 +171,17 @@ const db = {
             return { success: true };
         }
         return { success: false };
+    },
+
+    clearSessions: (key) => {
+        const data = readDb();
+        const token = data.tokens.find(t => t.key.toUpperCase() === key.toUpperCase());
+        if (token) {
+            token.sessions = [];
+            writeDb(data);
+            return { success: true };
+        }
+        return { success: false, message: "Token not found." };
     }
 };
 

@@ -161,6 +161,12 @@ app.post('/api/admin/clear-all', requireAdminAuth, (req, res) => {
     res.json(result);
 });
 
+app.post('/api/admin/clear-sessions', requireAdminAuth, (req, res) => {
+    const { key } = req.body;
+    const result = db.clearSessions(key);
+    res.json(result);
+});
+
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });

@@ -399,6 +399,7 @@
                             <td>
                                 <div class="action-actions">
                                     <button class="action-btn btn-block" onclick="toggleToken('${t.key}')">${toggleLabel}</button>
+                                    <button class="action-btn" style="background: rgba(0, 240, 255, 0.15); color: var(--accent-cyan);" onclick="resetSessions('${t.key}')">Reset</button>
                                     <button class="action-btn btn-delete" onclick="deleteToken('${t.key}')">Delete</button>
                                 </div>
                             </td>
@@ -438,6 +439,25 @@
 
         function toggleToken(key) {
             fetch('/api/admin/toggle-token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    fetchTokens();
+                } else {
+                    alert(data.message);
+                }
+            })
+            .catch(err => console.error(err));
+        }
+
+        function resetSessions(key) {
+            if (!confirm(`Are you sure you want to disconnect all active devices for key: ${key}?`)) return;
+
+            fetch('/api/admin/clear-sessions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ key })
