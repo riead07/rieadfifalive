@@ -387,16 +387,29 @@
                     <div class="input-group">
                         <label class="input-label">Stream Source Type</label>
                         <select id="stream-type" class="form-input" onchange="toggleSourceInputs()">
-                            <option value="twitch">Twitch Live Channel (Recommended)</option>
+                            <option value="whip">WebRTC WHIP (Ultra-Low Latency & Free)</option>
                             <option value="hls">Custom HLS URL (.m3u8)</option>
                         </select>
                     </div>
                 </div>
 
                 <div class="form-grid" style="grid-template-columns: 1fr;">
-                    <div class="input-group" id="twitch-channel-group">
-                        <label class="input-label">Twitch Channel/Username (Log in to OBS with this)</label>
-                        <input type="text" id="twitch-channel" class="form-input" placeholder="e.g. riead07">
+                    <div id="whip-settings-group" style="background: rgba(29, 114, 242, 0.05); border: 1px solid rgba(29, 114, 242, 0.15); padding: 20px; border-radius: 10px; display: grid; gap: 15px;">
+                        <div class="input-group">
+                            <label class="input-label" style="color: var(--accent-cyan); font-weight: 800;">Stream Server (WHIP URL)</label>
+                            <div style="display: flex; gap: 10px; width: 100%;">
+                                <input type="text" id="whip-server-url" class="form-input" value="https://whip.vdo.ninja/" readonly style="background: rgba(0, 0, 0, 0.5); cursor: default; letter-spacing: 0.5px;">
+                                <button type="button" class="create-btn" style="width: auto; padding: 10px 20px; font-size: 11px;" onclick="copyText('whip-server-url')">Copy URL</button>
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label class="input-label" style="color: var(--accent-cyan); font-weight: 800;">Stream Key (Set in OBS)</label>
+                            <div style="display: flex; gap: 10px; width: 100%;">
+                                <input type="text" id="whip-stream-key" class="form-input" placeholder="e.g. rieadfifa26" style="letter-spacing: 1px; font-weight: bold;">
+                                <button type="button" class="create-btn" style="width: auto; padding: 10px 20px; font-size: 11px;" onclick="copyText('whip-stream-key')">Copy Key</button>
+                            </div>
+                            <span style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">In OBS settings, select Service as <strong>WHIP</strong>. Copy the Server URL and Stream Key above and paste them.</span>
+                        </div>
                     </div>
                     <div class="input-group" id="hls-url-group" style="display: none;">
                         <label class="input-label">Custom HLS URL (.m3u8 / .mp4)</label>
@@ -516,14 +529,14 @@
 
         function toggleSourceInputs() {
             const type = document.getElementById('stream-type').value;
-            const twitchGroup = document.getElementById('twitch-channel-group');
+            const whipGroup = document.getElementById('whip-settings-group');
             const hlsGroup = document.getElementById('hls-url-group');
 
-            if (type === 'twitch') {
-                twitchGroup.style.display = 'block';
+            if (type === 'whip') {
+                whipGroup.style.display = 'grid';
                 hlsGroup.style.display = 'none';
             } else {
-                twitchGroup.style.display = 'none';
+                whipGroup.style.display = 'none';
                 hlsGroup.style.display = 'block';
             }
         }
@@ -545,8 +558,8 @@
                 .then(res => res.json())
                 .then(settings => {
                     document.getElementById('stream-title').value = settings.streamTitle || '';
-                    document.getElementById('stream-type').value = settings.streamType || 'twitch';
-                    document.getElementById('twitch-channel').value = settings.twitchChannel || '';
+                    document.getElementById('stream-type').value = settings.streamType || 'whip';
+                    document.getElementById('whip-stream-key').value = settings.whipKey || 'rieadfifa26';
                     document.getElementById('hls-url').value = settings.hlsUrl || '';
                     
                     const thumbnailVal = settings.thumbnailUrl || '';
@@ -569,7 +582,7 @@
         function saveStreamSettings() {
             const streamTitle = document.getElementById('stream-title').value.trim();
             const streamType = document.getElementById('stream-type').value;
-            const twitchChannel = document.getElementById('twitch-channel').value.trim();
+            const whipKey = document.getElementById('whip-stream-key').value.trim();
             const hlsUrl = document.getElementById('hls-url').value.trim();
             const thumbnailUrl = document.getElementById('thumbnail-url').value.trim();
             const isLive = document.getElementById('broadcast-is-live').checked;
@@ -582,7 +595,7 @@
             fetch('/api/admin/settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ isLive, streamTitle, streamType, twitchChannel, hlsUrl, thumbnailUrl })
+                body: JSON.stringify({ isLive, streamType, streamTitle, whipKey, hlsUrl, thumbnailUrl })
             })
             .then(res => res.json())
             .then(data => {
@@ -593,6 +606,19 @@
                 }
             })
             .catch(err => console.error(err));
+        }
+
+        function copyText(elementId) {
+            const input = document.getElementById(elementId);
+            input.select();
+            input.setSelectionRange(0, 99999);
+            navigator.clipboard.writeText(input.value)
+                .then(() => {
+                    alert("Copied successfully!");
+                })
+                .catch(err => {
+                    console.error("Failed to copy:", err);
+                });
         }
 
         function handleThumbnailUpload(input) {

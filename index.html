@@ -629,7 +629,7 @@
                         dot.style.background = 'var(--danger-color)';
                         text.innerText = 'OFFLINE';
                     } else {
-                        const sourceKey = `${settings.streamType}_${settings.twitchChannel || settings.hlsUrl}`;
+                        const sourceKey = `${settings.streamType}_${settings.whipKey || settings.hlsUrl}`;
                         
                         badge.style.background = 'rgba(0, 255, 135, 0.1)';
                         badge.style.borderColor = 'var(--accent-green)';
@@ -643,7 +643,7 @@
                             currentIsLive = true;
                             if (existingIframe) existingIframe.remove();
 
-                            if (settings.streamType === 'twitch' && settings.twitchChannel) {
+                            if (settings.streamType === 'whip' && settings.whipKey) {
                                 placeholder.style.display = 'none';
                                 video.style.display = 'none';
                                 
@@ -656,15 +656,14 @@
                                     hlsInstance = null;
                                 }
                                 
-                                const currentDomain = window.location.hostname;
                                 const playerWrapper = document.querySelector('.player-wrapper');
                                 
                                 const iframe = document.createElement('iframe');
                                 iframe.id = 'twitch-player-iframe';
-                                iframe.src = `https://player.twitch.tv/?channel=${settings.twitchChannel}&parent=${currentDomain}&autoplay=true&muted=false`;
+                                iframe.src = `https://vdo.ninja/?view=${settings.whipKey}&autoplay=1&controlbar=0&audio=1&videobitrate=6000&codec=h264`;
                                 iframe.frameBorder = "0";
+                                iframe.allow = "autoplay; encrypted-media; fullscreen";
                                 iframe.allowFullscreen = true;
-                                iframe.scrolling = "no";
                                 iframe.style.width = "100%";
                                 iframe.style.height = "100%";
                                 iframe.style.position = "absolute";

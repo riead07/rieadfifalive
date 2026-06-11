@@ -194,12 +194,17 @@ const db = {
         if (!data.settings) {
             data.settings = {
                 isLive: false,
-                streamType: "twitch",
+                streamType: "whip",
                 streamTitle: "FIFA World Cup 2026 Live",
-                twitchChannel: "riead07",
+                whipKey: "rieadfifa26",
                 hlsUrl: "",
                 thumbnailUrl: ""
             };
+            writeDb(data);
+        }
+        if (data.settings.twitchChannel && !data.settings.whipKey) {
+            data.settings.whipKey = data.settings.twitchChannel;
+            delete data.settings.twitchChannel;
             writeDb(data);
         }
         return data.settings;
@@ -209,9 +214,9 @@ const db = {
         const data = readDb();
         data.settings = {
             isLive: !!settings.isLive,
-            streamType: settings.streamType || "twitch",
+            streamType: settings.streamType || "whip",
             streamTitle: settings.streamTitle || "FIFA World Cup 2026 Live",
-            twitchChannel: settings.twitchChannel || "",
+            whipKey: settings.whipKey || "rieadfifa26",
             hlsUrl: settings.hlsUrl || "",
             thumbnailUrl: settings.thumbnailUrl || ""
         };
