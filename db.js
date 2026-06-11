@@ -61,7 +61,8 @@ if (isMongo) {
         whipKey: { type: String, default: "rieadfifa26" },
         hlsUrl: { type: String, default: "" },
         youtubeUrl: { type: String, default: "" },
-        thumbnailUrl: { type: String, default: "" }
+        thumbnailUrl: { type: String, default: "" },
+        twitchChannel: { type: String, default: "" }
     });
     SettingsModel = mongoose.model('Settings', SettingsSchema);
 
@@ -432,7 +433,8 @@ const db = {
                         whipKey: "rieadfifa26",
                         hlsUrl: "",
                         youtubeUrl: "",
-                        thumbnailUrl: ""
+                        thumbnailUrl: "",
+                        twitchChannel: ""
                     });
                     await settings.save();
                 }
@@ -450,7 +452,8 @@ const db = {
                 whipKey: "rieadfifa26",
                 hlsUrl: "",
                 youtubeUrl: "",
-                thumbnailUrl: ""
+                thumbnailUrl: "",
+                twitchChannel: ""
             };
             writeDb(data);
         }
@@ -471,6 +474,7 @@ const db = {
                 doc.hlsUrl = settings.hlsUrl || "";
                 doc.youtubeUrl = settings.youtubeUrl || "";
                 doc.thumbnailUrl = settings.thumbnailUrl || "";
+                doc.twitchChannel = settings.twitchChannel || "";
                 await doc.save();
                 return { success: true, settings: doc.toObject() };
             } catch (err) {
@@ -485,7 +489,8 @@ const db = {
             whipKey: settings.whipKey || "rieadfifa26",
             hlsUrl: settings.hlsUrl || "",
             youtubeUrl: settings.youtubeUrl || "",
-            thumbnailUrl: settings.thumbnailUrl || ""
+            thumbnailUrl: settings.thumbnailUrl || "",
+            twitchChannel: settings.twitchChannel || ""
         };
         writeDb(data);
         return { success: true, settings: data.settings };

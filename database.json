@@ -8,5 +8,14 @@
             "createdAt": "2026-06-11T20:03:43.314Z",
             "sessions": []
         }
-    ]
+    ],
+    "settings": {
+        "isLive": false,
+        "streamType": "whip",
+        "streamTitle": "FIFA World Cup 2026 Live",
+        "whipKey": "rieadfifa26",
+        "hlsUrl": "",
+        "youtubeUrl": "",
+        "thumbnailUrl": ""
+    }
 }

@@ -285,9 +285,9 @@ app.get('/api/admin/settings', requireAdminAuth, async (req, res) => {
 });
 
 app.post('/api/admin/settings', requireAdminAuth, async (req, res) => {
-    const { isLive, streamType, streamTitle, whipKey, hlsUrl, youtubeUrl, thumbnailUrl } = req.body;
+    const { isLive, streamType, streamTitle, whipKey, hlsUrl, youtubeUrl, thumbnailUrl, twitchChannel } = req.body;
     try {
-        const result = await db.saveSettings({ isLive, streamType, streamTitle, whipKey, hlsUrl, youtubeUrl, thumbnailUrl });
+        const result = await db.saveSettings({ isLive, streamType, streamTitle, whipKey, hlsUrl, youtubeUrl, thumbnailUrl, twitchChannel });
         res.json(result);
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
