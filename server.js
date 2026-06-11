@@ -202,11 +202,18 @@ app.get('/api/settings', requireUserAuth, (req, res) => {
         return res.status(401).json({ success: false, message: "Unauthorized." });
     }
     const activeSession = tokenData.sessions.find(s => s.id === sessionToken);
+    const activeViewerCount = db.getActiveSessions().length;
     res.json({
         ...settings,
         allowChat: activeSession ? !!activeSession.allowChat : false,
-        viewerName: activeSession ? activeSession.name : "Viewer"
+        viewerName: activeSession ? activeSession.name : "Viewer",
+        activeViewerCount
     });
+});
+
+app.get('/api/admin/settings', requireAdminAuth, (req, res) => {
+    const settings = db.getSettings();
+    res.json(settings);
 });
 
 app.post('/api/admin/settings', requireAdminAuth, (req, res) => {
