@@ -7,6 +7,11 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <!-- Plyr & HLS.js for Premium Video Playback -->
+    <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
+
     <style>
         :root {
             --bg-color: #07090e;
@@ -556,6 +561,8 @@
 
         let currentStreamSource = "";
         let currentIsLive = null;
+        let plyrPlayer = null;
+        let hlsInstance = null;
 
         document.addEventListener('DOMContentLoaded', () => {
             loadStreamSettings();
@@ -585,6 +592,15 @@
                         currentStreamSource = "";
                         currentIsLive = false;
                         if (existingIframe) existingIframe.remove();
+                        
+                        if (plyrPlayer) {
+                            plyrPlayer.destroy();
+                            plyrPlayer = null;
+                        }
+                        if (hlsInstance) {
+                            hlsInstance.destroy();
+                            hlsInstance = null;
+                        }
                         video.style.display = 'none';
                         video.pause();
                         
@@ -631,6 +647,15 @@
                                 placeholder.style.display = 'none';
                                 video.style.display = 'none';
                                 
+                                if (plyrPlayer) {
+                                    plyrPlayer.destroy();
+                                    plyrPlayer = null;
+                                }
+                                if (hlsInstance) {
+                                    hlsInstance.destroy();
+                                    hlsInstance = null;
+                                }
+                                
                                 const currentDomain = window.location.hostname;
                                 const playerWrapper = document.querySelector('.player-wrapper');
                                 
@@ -650,8 +675,34 @@
                             } else if (settings.streamType === 'hls' && settings.hlsUrl) {
                                 placeholder.style.display = 'none';
                                 video.style.display = 'block';
-                                video.src = settings.hlsUrl;
-                                video.play().catch(e => console.log('Autoplay blocked', e));
+                                
+                                const overlay = document.querySelector('.controls-overlay');
+                                if (overlay) overlay.style.display = 'none';
+                                
+                                if (hlsInstance) {
+                                    hlsInstance.destroy();
+                                    hlsInstance = null;
+                                }
+
+                                if (Hls.isSupported()) {
+                                    hlsInstance = new Hls();
+                                    hlsInstance.loadSource(settings.hlsUrl);
+                                    hlsInstance.attachMedia(video);
+                                    hlsInstance.on(Hls.Events.MANIFEST_PARSED, function() {
+                                        video.play().catch(e => console.log('Autoplay blocked', e));
+                                    });
+                                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                                    video.src = settings.hlsUrl;
+                                    video.play().catch(e => console.log('Autoplay blocked', e));
+                                }
+
+                                if (!plyrPlayer) {
+                                    plyrPlayer = new Plyr(video, {
+                                        controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'captions', 'settings', 'pip', 'fullscreen'],
+                                        settings: ['quality', 'speed'],
+                                        speed: { selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 2] }
+                                    });
+                                }
                             } else {
                                 placeholder.style.display = 'flex';
                                 video.style.display = 'none';
