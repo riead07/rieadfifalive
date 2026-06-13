@@ -7,6 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <!-- Hls.js for HLS preview -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
         :root {
             --bg-color: #030611;
@@ -456,6 +458,21 @@
                     </div>
                 </div>
 
+                <!-- Admin Private Preview -->
+                <div class="form-grid" style="grid-template-columns: 1fr; border-top: 1px dashed rgba(29, 114, 242, 0.1); padding-top: 20px;">
+                    <div class="input-group">
+                        <label class="input-label" style="color: var(--accent-cyan); font-weight: 800; display: flex; align-items: center; gap: 8px;">
+                            <span>🔒 Admin Private Preview (Pre-Stream Check)</span>
+                            <span id="preview-active-badge" style="font-size: 9px; padding: 2px 6px; border-radius: 4px; background: rgba(29,114,242,0.15); color: var(--accent-cyan); border: 1px solid rgba(29,114,242,0.3);">PREVIEW ACTIVE</span>
+                        </label>
+                        <div class="player-wrapper" style="width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; position: relative; border: 1px solid rgba(29, 114, 242, 0.2); box-shadow: inset 0 0 20px rgba(0,0,0,0.8); margin-top: 10px;">
+                            <iframe id="admin-preview-iframe" src="" frameborder="0" allow="autoplay; encrypted-media; fullscreen" allowfullscreen style="width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1;"></iframe>
+                            <video id="admin-preview-video" style="width: 100%; height: 100%; display: none; object-fit: cover; position: absolute; top: 0; left: 0; z-index: 1;" controls autoplay muted></video>
+                        </div>
+                        <span style="font-size: 10px; color: var(--text-secondary); margin-top: 8px;">This preview player loads your OBS stream privately. Verify the stream matches and has sound/video here first. Once confirmed, toggle <strong>Broadcast Status</strong> to <strong>LIVE</strong> at the top and click <strong>Apply Broadcast Settings</strong> to share it with your friends!</span>
+                    </div>
+                </div>
+
                 <button class="create-btn" onclick="saveStreamSettings()" style="width: 100%;">Apply Broadcast Settings</button>
             </div>
         </div>
@@ -538,6 +555,53 @@
     </div>
 
     <script>
+        function getYouTubeId(url) {
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[2].length === 11) ? match[2] : url;
+        }
+
+        let previewHls = null;
+
+        function updatePreviewPlayer(settings) {
+            const previewIframe = document.getElementById('admin-preview-iframe');
+            const previewVideo = document.getElementById('admin-preview-video');
+            
+            previewIframe.src = '';
+            previewIframe.style.display = 'none';
+            previewVideo.style.display = 'none';
+            previewVideo.pause();
+            
+            if (previewHls) {
+                previewHls.destroy();
+                previewHls = null;
+            }
+
+            if (settings.streamType === 'whip' && settings.whipKey) {
+                previewIframe.style.display = 'block';
+                previewIframe.src = `https://vdo.ninja/?whip=${settings.whipKey}&autoplay=1&controlbar=1&audio=1&relay`;
+            } else if (settings.streamType === 'kick' && settings.kickChannel) {
+                previewIframe.style.display = 'block';
+                previewIframe.src = `https://player.kick.com/${settings.kickChannel}`;
+            } else if (settings.streamType === 'twitch' && settings.twitchChannel) {
+                previewIframe.style.display = 'block';
+                previewIframe.src = `https://player.twitch.tv/?channel=${settings.twitchChannel}&parent=${window.location.hostname}&parent=rieadfifalive.onrender.com&parent=localhost&autoplay=true&muted=true`;
+            } else if (settings.streamType === 'youtube' && settings.youtubeUrl) {
+                previewIframe.style.display = 'block';
+                const youtubeId = getYouTubeId(settings.youtubeUrl);
+                previewIframe.src = `https://www.youtube.com/embed/${youtubeId}?autoplay=1&mute=1`;
+            } else if (settings.streamType === 'hls' && settings.hlsUrl) {
+                previewVideo.style.display = 'block';
+                if (Hls.isSupported()) {
+                    previewHls = new Hls();
+                    previewHls.loadSource(settings.hlsUrl);
+                    previewHls.attachMedia(previewVideo);
+                } else if (previewVideo.canPlayType('application/vnd.apple.mpegurl')) {
+                    previewVideo.src = settings.hlsUrl;
+                }
+            }
+        }
+
         // Load data on start
         document.addEventListener('DOMContentLoaded', () => {
             fetchTokens();
@@ -615,6 +679,7 @@
                     document.getElementById('broadcast-is-live').checked = !!settings.isLive;
                     updateBroadcastUI();
                     toggleSourceInputs();
+                    updatePreviewPlayer(settings);
 
                     // Storage indicator & warning banner update
                     const dbType = settings.dbType || 'Stable (Atlas/JSON)';
@@ -654,6 +719,7 @@
             .then(data => {
                 if (data.success) {
                     alert("Broadcast settings applied successfully!");
+                    updatePreviewPlayer({ streamType, streamTitle, whipKey, hlsUrl, youtubeUrl, twitchChannel, kickChannel, thumbnailUrl });
                 } else {
                     alert("Failed to apply settings: " + (data.message || "Unknown error"));
                 }
